@@ -57,11 +57,17 @@ def ic_no(name, cls="ic"):
             'stroke-linecap="round" stroke-linejoin="round">%s'
             '<path d="M4.2 19.8L19.8 4.2" stroke-width="2.4"/></svg>' % (cls, ICONS[name]))
 
-# ── геометрия вырезанного товара (675×167) ───────────────────────────────────
-PW, PH = 675, 167
-L, B, R, F = (6, 75), (533, 6), (668, 71), (141, 140)   # лев / дальний / прав / ближний
-U = (B[0] - L[0], B[1] - L[1])     # длинная сторона 200 см
-V = (R[0] - B[0], R[1] - B[1])     # короткая сторона 90 см
+# ── геометрия товара (координаты внутри product_sh.png с полями под тень) ──
+import json as _json
+_G = _json.load(open(os.path.join(os.path.dirname(__file__), "geom.json")))
+PADL, PADT = _G["PAD"][0], _G["PAD"][1]
+PW, PH = _G["W"] // _G["S"], _G["H"] // _G["S"]          # полный холст с полями
+BODYW = 675                                              # ширина самого изделия
+SCALE = PW / BODYW                                       # во сколько шире холст
+L = (_G["L"][0] + PADL, _G["L"][1] + PADT)
+B = (_G["B"][0] + PADL, _G["B"][1] + PADT)
+R = (_G["R"][0] + PADL, _G["R"][1] + PADT)
+U = tuple(_G["U"]); V = tuple(_G["V"])
 FACE = "matrix(%d,%d,%d,%d,%d,%d)" % (U[0], U[1], V[0], V[1], L[0], L[1])
 THICK = 21
 
@@ -73,73 +79,11 @@ def prod_svg(inner, padx=0.12, padtop=0.55, padbot=0.30):
     return ('<svg class="pov" style="%s" viewBox="%.1f %.1f %.1f %.1f">%s</svg>'
             % (style, vb[0], vb[1], vb[2], vb[3], inner))
 
-def product(cls="", inner="", w=660, extra=""):
-    return ('<div class="prod %s" style="width:%dpx%s"><div class="pshadow"></div>'
-            '<img src="product.png" alt="">%s</div>' % (cls, w, extra, inner))
-
-# ── разлитая жидкость + стакан (карточка 2) ──────────────────────────────────
-def spill():
-    pool = (
-      '<defs>'
-      '<linearGradient id="pg" x1="0" y1="0" x2=".7" y2="1">'
-      '<stop offset="0" stop-color="#BFF6EC"/><stop offset=".45" stop-color="#6FE0D0"/>'
-      '<stop offset="1" stop-color="#2BB9A6"/></linearGradient>'
-      '</defs>'
-      '<g transform="' + FACE + '">'
-      # контактная тень под лужей
-      '<path d="M.605 .255 C .672 .268,.722 .362,.727 .482 C .732 .606,.690 .728,.618 .762'
-      ' C .556 .792,.503 .704,.490 .584 C .477 .462,.505 .332,.546 .288 C .570 .262,.585 .251,.605 .255 Z"'
-      ' fill="#0F5F55" fill-opacity=".30" transform="translate(.004 .020)"/>'
-      # сама лужа
-      '<path d="M.600 .250 C .667 .263,.717 .357,.722 .477 C .727 .601,.685 .723,.613 .757'
-      ' C .551 .787,.498 .699,.485 .579 C .472 .457,.500 .327,.541 .283 C .565 .257,.580 .246,.600 .250 Z"'
-      ' fill="url(#pg)"/>'
-      # блик по верхней кромке
-      '<path d="M.567 .300 C .606 .272,.667 .300,.690 .390" fill="none" stroke="#FFFFFF"'
-      ' stroke-opacity=".80" stroke-width=".016" stroke-linecap="round"/>'
-      '<ellipse cx=".545" cy=".620" rx=".028" ry=".060" fill="#FFFFFF" fill-opacity=".38"/>'
-      # брызги
-      '<g fill="url(#pg)">'
-      '<ellipse cx=".470" cy=".215" rx=".016" ry=".036"/>'
-      '<ellipse cx=".757" cy=".300" rx=".013" ry=".029"/>'
-      '<ellipse cx=".441" cy=".690" rx=".018" ry=".040"/>'
-      '<ellipse cx=".776" cy=".672" rx=".011" ry=".025"/>'
-      '<ellipse cx=".392" cy=".455" rx=".010" ry=".022"/>'
-      '</g>'
-      '</g>')
-    return prod_svg(pool, padx=0.12, padtop=0.55, padbot=0.30)
-
-GLASS = '''
-<svg class="glass" viewBox="0 0 360 520">
-  <defs>
-    <linearGradient id="gl" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0"   stop-color="#ffffff" stop-opacity=".85"/>
-      <stop offset=".28" stop-color="#ffffff" stop-opacity=".30"/>
-      <stop offset=".66" stop-color="#DCF6F1" stop-opacity=".40"/>
-      <stop offset="1"   stop-color="#ffffff" stop-opacity=".80"/>
-    </linearGradient>
-    <linearGradient id="liq" x1="0" y1="0" x2=".4" y2="1">
-      <stop offset="0" stop-color="#9FEEE1"/><stop offset="1" stop-color="#2BB9A6"/>
-    </linearGradient>
-    <path id="gbody" d="M42 300 H158 L147 490 A28 28 0 0 1 119 516 H81 A28 28 0 0 1 53 490 Z"/>
-    <clipPath id="body"><use href="#gbody" transform="rotate(-115 100 300)"/></clipPath>
-  </defs>
-  <!-- струя из стакана в лужу -->
-  <path d="M118 348 C 132 396, 140 436, 158 472" fill="none" stroke="url(#liq)"
-        stroke-width="19" stroke-linecap="round"/>
-  <path d="M116 356 C 128 398, 136 432, 150 466" fill="none" stroke="#E4FBF6"
-        stroke-opacity=".55" stroke-width="5" stroke-linecap="round"/>
-  <!-- жидкость внутри: уровень горизонтальный -->
-  <g clip-path="url(#body)"><rect x="-80" y="272" width="520" height="330" fill="url(#liq)"/></g>
-  <!-- стекло -->
-  <g transform="rotate(-115 100 300)">
-    <use href="#gbody" fill="url(#gl)" stroke="#ffffff" stroke-opacity=".92" stroke-width="4.5"/>
-    <path d="M70 322 l-9 168" stroke="#ffffff" stroke-opacity=".8" stroke-width="8"
-          stroke-linecap="round" fill="none"/>
-    <ellipse cx="100" cy="300" rx="58" ry="15" fill="#F2FDFA" fill-opacity=".45"
-             stroke="#ffffff" stroke-width="5.5"/>
-  </g>
-</svg>'''
+def product(cls="", inner="", w=660, src="product_sh.png", extra=""):
+    """w — ширина самого изделия; холст с полями под тень шире в SCALE раз."""
+    full = round(w * SCALE)
+    return ('<div class="prod %s" style="width:%dpx%s"><img src="%s" alt="">%s</div>'
+            % (cls, full, extra, src, inner))
 
 # ── размерные стрелки (карточка 6) ───────────────────────────────────────────
 def dims():
@@ -169,7 +113,7 @@ def dims():
       + lab(mid(a1, b1), "200 см", 0, -25)
       + lab(mid(a2, b2), "90 см", 8, -24)
       + lab(mid(a3, b3), "10 см", -20, 0, 24, rot=-90))
-    return prod_svg(inner, padx=0.14, padtop=0.72, padbot=0.30)
+    return prod_svg(inner, padx=0.03, padtop=0.06, padbot=0.02)
 
 # ── шапка карточки ───────────────────────────────────────────────────────────
 def head(big, small=None, size=88, ssize=40, center=False, top=52):
@@ -191,8 +135,8 @@ C1 = f'''
 <div class="card" id="c1">
   <div class="hex tr"></div><div class="hex bl"></div><div class="halo"></div>
   <div class="brand">
-    <div class="logo"><i></i>ТЕКСПОЛИМЕР</div>
-    <div class="ru"><i>RU</i>Сделано в России</div>
+    <img class="logo" src="logo_texpolimer.png" alt="ТЕКСПОЛИМЕР">
+    <span class="ru"><img src="made_in_russia.png" alt="Сделано в России"></span>
   </div>
   <div class="head" style="top:150px">
     <span class="hs" style="font-size:36px;margin-bottom:6px">200 × 90 × 10 см</span>
@@ -213,9 +157,8 @@ C2 = f'''
 <div class="card" id="c2">
   <div class="hex bl"></div><div class="halo"></div>
   {head("НЕПРОМОКАЕМЫЙ","наматрасник",66,38)}
-  {bubble("home","Подходит для <b>медицинских учреждений</b> и для домашнего использования","left:52px;top:214px",w=404)}
-  {product("p2", spill(), 700)}
-  {GLASS}
+  {bubble("home","Подходит для <b>медицинских учреждений</b> и для домашнего использования","left:52px;top:268px",w=412)}
+  {product("p2", "", 764, src="product_wet.png")}
   <div class="corner">
     <span class="cic big">{ic("shield")}</span>
     <b>БЕЗОПАСЕН<s>для детей и взрослых</s></b>
@@ -271,9 +214,7 @@ C6 = f'''
   <div class="hex bl"></div><div class="halo"></div>
   {head("РАЗМЕР","200 × 90 × 10 см",84,46)}
   {bubble("ruler","На матрас <b>200 × 90 см</b> высотой <b>10 см</b> — для медицинской кровати и для дома","left:52px;top:300px",w=430)}
-  <div class="prod p6" style="width:640px">
-    <div class="pshadow"></div><img src="product.png" alt="">{dims()}
-  </div>
+  {product("p6", dims(), 640)}
 </div>'''
 
 CSS = '''
@@ -300,11 +241,9 @@ body{display:flex;flex-direction:column;gap:26px;align-items:center;padding:26px
 
 /* товар */
 .prod{position:absolute;left:50%;transform:translateX(-50%)}
-.prod img{display:block;width:100%;height:auto;filter:drop-shadow(0 22px 26px rgba(105,50,10,.34))}
-.pshadow{position:absolute;left:4%;right:4%;bottom:-16px;height:52px;border-radius:50%;
-  background:radial-gradient(closest-side,rgba(116,55,12,.44),rgba(116,55,12,0))}
+.prod img{display:block;width:100%;height:auto}
 .pov{position:absolute;overflow:visible;pointer-events:none}
-.p1{bottom:168px}.p2{bottom:140px}.p4{bottom:104px}.p5{bottom:74px}.p6{bottom:150px;margin-left:20px}
+.p1{bottom:70px}.p2{bottom:106px}.p4{bottom:8px}.p5{bottom:-20px}.p6{bottom:62px;margin-left:20px}
 
 /* чипы 2×2 */
 .grid2{position:absolute;left:52px;right:52px;display:grid;grid-template-columns:1fr 1fr;gap:14px;z-index:4}
@@ -331,14 +270,10 @@ body{display:flex;flex-direction:column;gap:26px;align-items:center;padding:26px
 .bic .ic{width:30px;height:30px}
 
 /* угловой знак */
-.corner{position:absolute;left:52px;bottom:48px;display:flex;align-items:center;gap:18px;z-index:5}
+.corner{position:absolute;left:52px;bottom:44px;display:flex;align-items:center;gap:18px;z-index:5}
 .corner b{font-family:M,sans-serif;font-weight:800;font-size:30px;letter-spacing:.02em;line-height:1.1}
 .corner s{display:block;font-family:G,sans-serif;text-decoration:none;font-weight:500;font-size:23px;
   letter-spacing:0;color:rgba(255,255,255,.92);margin-top:3px}
-
-/* стакан */
-.glass{position:absolute;left:269px;top:285px;width:360px;height:520px;z-index:3;overflow:visible;
-  filter:drop-shadow(0 16px 22px rgba(105,50,10,.26))}
 
 /* спецификации */
 .specs{position:absolute;left:52px;right:52px;bottom:52px;display:flex;gap:16px;z-index:5}
@@ -354,14 +289,10 @@ body{display:flex;flex-direction:column;gap:26px;align-items:center;padding:26px
 /* бренд-строка */
 .brand{position:absolute;left:52px;right:52px;top:48px;display:flex;justify-content:space-between;
   align-items:center;z-index:5}
-.logo{display:flex;align-items:center;gap:12px;font-family:M,sans-serif;font-weight:800;font-size:25px;
-  letter-spacing:.04em;color:#fff}
-.logo i{width:28px;height:28px;border-radius:7px;background:#fff;
-  box-shadow:inset 0 0 0 7px #2A9A88}
-.ru{display:flex;align-items:center;gap:11px;background:#fff;border-radius:14px;padding:10px 16px;
-  color:#2B4A45;font-size:21px;font-weight:600}
-.ru i{font-style:normal;font-family:M,sans-serif;font-weight:800;font-size:17px;color:#fff;
-  background:#2B4A45;border-radius:6px;padding:3px 7px;letter-spacing:.04em}
+.logo{display:block;height:42px;width:auto}
+.ru{display:flex;align-items:center;background:#fff;border-radius:14px;padding:11px 16px;
+  box-shadow:0 8px 20px rgba(112,52,10,.18)}
+.ru img{display:block;height:34px;width:auto}
 
 /* фото-полоса */
 .photo{position:absolute;left:0;right:0;top:0;height:470px;overflow:hidden}
