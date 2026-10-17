@@ -380,22 +380,88 @@ body{
   }
   box(2.8, 0.14, 1.8, COL.steel, 27.2, 0.07, 7.1, { rough:0.9 });         // поддон приёмки
 
+  // Станок горизонтальной резки ППУ с ЧПУ: бесконечный ленточный нож на двух
+  // шкивах с вертикальными осями, подвижный портал по верхним направляющим,
+  // рольганги подачи и приёма, заточной узел, пульт с экраном.
   var cnc = group(18.4, 0, 2.7);
-  box(5.0, 0.8, 2.4, COL.white, 0, 0.4, 0, { parent:cnc, rough:0.55 });
-  box(5.2, 0.14, 2.6, COL.steelDark, 0, 0.86, 0, { parent:cnc, rough:0.5, metal:0.4 });
-  box(0.26, 0.75, 0.26, COL.blue, -2.3, 0.38, -1.0, { parent:cnc, rough:0.5 });
-  box(0.26, 0.75, 0.26, COL.blue, 2.3, 0.38, -1.0, { parent:cnc, rough:0.5 });
-  box(0.26, 0.75, 0.26, COL.blue, -2.3, 0.38, 1.0, { parent:cnc, rough:0.5 });
-  box(0.26, 0.75, 0.26, COL.blue, 2.3, 0.38, 1.0, { parent:cnc, rough:0.5 });
-  box(0.32, 2.4, 2.9, COL.white, -2.65, 1.2, 0, { parent:cnc, rough:0.5 });
-  box(0.32, 2.4, 2.9, COL.white, 2.65, 1.2, 0, { parent:cnc, rough:0.5 });
-  box(5.6, 0.24, 0.24, COL.blue, 0, 2.4, -1.35, { parent:cnc, rough:0.5 });
-  box(5.6, 0.24, 0.24, COL.blue, 0, 2.4, 1.35, { parent:cnc, rough:0.5 });
-  box(0.6, 1.1, 0.4, COL.steelDark, 3.0, 1.3, 1.1, { parent:cnc, rough:0.45 });
-  box(0.42, 0.3, 0.06, 0x8FD4F2, 3.0, 1.72, 0.9, { parent:cnc, rough:0.2, cast:false });
+  var TBL = 0.92;                                   // верх рольганга
+  function hose(parent, pts, r, color){
+    var c = new THREE.CatmullRomCurve3(pts.map(function(p){ return new THREE.Vector3(p[0], p[1], p[2]); }));
+    var m = new THREE.Mesh(new THREE.TubeGeometry(c, 28, r, 8, false), mat(color, 0.6, 0.2));
+    m.castShadow = true; m.receiveShadow = true; parent.add(m); return m;
+  }
+  function plate(parent, text, w, h, x, y, z, ry){
+    var cv = document.createElement('canvas');
+    cv.width = 512; cv.height = Math.max(32, Math.round(512 * h / w));
+    var tex = null;
+    function draw(){
+      var g = cv.getContext('2d');
+      g.fillStyle = '#2C3A44'; g.fillRect(0, 0, cv.width, cv.height);
+      g.fillStyle = '#EDF1F2'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      var fs = cv.height * 0.56;
+      do { g.font = '700 ' + fs.toFixed(0) + 'px Montserrat, Arial, sans-serif'; fs -= 2; }
+      while (fs > 8 && g.measureText(text).width > cv.width * 0.88);
+      g.fillText(text, cv.width / 2, cv.height / 2 + 1);
+      if (tex) tex.needsUpdate = true;
+    }
+    draw(); tex = new THREE.CanvasTexture(cv); draw();
+    var m = new THREE.Mesh(BOX, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.45 }));
+    m.scale.set(w, h, 0.03); m.position.set(x, y, z); m.rotation.y = ry || 0;
+    m.castShadow = false; m.receiveShadow = true; parent.add(m);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+    return m;
+  }
+  function tilted(parent, x, y, z, ax, ry){
+    var g = new THREE.Group(); g.position.set(x, y, z); g.rotation.order = 'YXZ';
+    g.rotation.y = ry || 0; g.rotation.x = ax; parent.add(g); return g;
+  }
+  // станина и ноги
+  box(5.8, 0.3, 2.8, COL.blue, 0, TBL - 0.24, 0, { parent:cnc, rough:0.62 });
+  box(5.9, 0.14, 0.2, COL.steelDark, 0, TBL - 0.02, -1.38, { parent:cnc, rough:0.5, metal:0.4 });
+  box(5.9, 0.14, 0.2, COL.steelDark, 0, TBL - 0.02, 1.38, { parent:cnc, rough:0.5, metal:0.4 });
+  for (var lx = -2.5; lx <= 2.6; lx += 1.67){
+    box(0.18, 0.62, 0.18, COL.steelDark, lx, 0.31, -1.25, { parent:cnc, rough:0.65 });
+    box(0.18, 0.62, 0.18, COL.steelDark, lx, 0.31, 1.25, { parent:cnc, rough:0.65 });
+  }
+  // рольганг подачи и приёма
+  for (var rx = -2.7; rx <= 2.75; rx += 0.36){
+    if (Math.abs(rx) < 0.75) continue;              // зона реза свободна
+    cyl(0.055, 2.5, COL.steel, rx, TBL - 0.055, 0, { parent:cnc, rx:PI / 2, seg:10, rough:0.3, metal:0.75, cast:false });
+  }
+  box(2.2, 0.1, 2.5, COL.steel, 0, TBL - 0.06, 0, { parent:cnc, rough:0.35, metal:0.6 });  // стол в зоне реза
+  // колонны и верхние направляющие портала
+  for (var cz = -1; cz <= 1; cz += 2){
+    box(0.22, 2.75, 0.24, COL.white, -2.78, 1.37, 1.48 * cz, { parent:cnc, rough:0.5 });
+    box(0.22, 2.75, 0.24, COL.white, 2.78, 1.37, 1.48 * cz, { parent:cnc, rough:0.5 });
+    box(5.9, 0.22, 0.26, COL.steelDark, 0, 2.78, 1.48 * cz, { parent:cnc, rough:0.45, metal:0.55 });
+    box(5.9, 0.07, 0.1, COL.steel, 0, 2.63, 1.48 * cz, { parent:cnc, rough:0.25, metal:0.85, cast:false });
+  }
+  // подвижный портал с ленточным ножом
   var blade = group(0, 0, 0, cnc);
-  box(0.16, 0.55, 2.7, COL.steelDark, 0, 1.35, 0, { parent:blade, rough:0.4, metal:0.6 });
-  box(0.05, 0.05, 2.7, 0xF2F4F3, 0, 1.1, 0, { parent:blade, cast:false, rough:0.3, metal:0.8 });
+  box(0.62, 0.34, 3.3, COL.white, 0, 2.96, 0, { parent:blade, rough:0.5 });           // траверса
+  box(0.5, 0.26, 0.5, COL.blue, 0, 2.74, -1.48, { parent:blade, rough:0.5 });         // каретки на рельсах
+  box(0.5, 0.26, 0.5, COL.blue, 0, 2.74, 1.48, { parent:blade, rough:0.5 });
+  box(0.38, 0.95, 0.38, COL.white, 0, 2.35, -1.25, { parent:blade, rough:0.5 });      // стойки шкивов
+  box(0.38, 0.95, 0.38, COL.white, 0, 2.35, 1.25, { parent:blade, rough:0.5 });
+  cyl(0.54, 0.34, COL.white, 0, 1.95, -1.25, { parent:blade, seg:24, rough:0.5 });    // кожухи шкивов
+  cyl(0.54, 0.34, COL.white, 0, 1.95, 1.25, { parent:blade, seg:24, rough:0.5 });
+  cyl(0.56, 0.07, COL.blue, 0, 2.14, -1.25, { parent:blade, seg:24, rough:0.5, cast:false });
+  cyl(0.56, 0.07, COL.blue, 0, 2.14, 1.25, { parent:blade, seg:24, rough:0.5, cast:false });
+  box(0.42, 0.42, 0.56, COL.steelDark, 0, 2.3, 1.62, { parent:blade, rough:0.45, metal:0.5 });  // мотор привода
+  cyl(0.1, 0.3, COL.steel, 0, 2.3, 1.36, { parent:blade, rz:PI / 2, seg:12, rough:0.3, metal:0.8, cast:false });
+  box(0.03, 0.055, 2.5, 0xE9EDEF, -0.52, 1.95, 0, { parent:blade, cast:false, rough:0.18, metal:0.95 });  // рабочий прогон ножа
+  box(0.03, 0.055, 2.5, 0xE9EDEF, 0.52, 1.95, 0, { parent:blade, cast:false, rough:0.18, metal:0.95 });  // обратный прогон
+  box(0.2, 0.22, 0.24, COL.gate, -0.52, 2.12, -0.86, { parent:blade, rough:0.5 });    // заточные головки
+  box(0.2, 0.22, 0.24, COL.gate, -0.52, 2.12, 0.86, { parent:blade, rough:0.5 });
+  box(0.34, 0.12, 1.1, COL.steelDark, 0, 2.86, -2.0, { parent:blade, rough:0.6, cast:false });   // кабель-канал
+  // пульт оператора с экраном
+  var cncPanel = group(3.05, 0, 1.3, cnc);
+  box(0.62, 1.25, 0.52, COL.white, 0, 0.63, 0, { parent:cncPanel, rough:0.5 });
+  box(0.66, 0.08, 0.56, COL.blue, 0, 1.29, 0, { parent:cncPanel, rough:0.5 });
+  var cncScreen = tilted(cncPanel, 0, 1.52, -0.08, -0.55);
+  box(0.52, 0.38, 0.07, COL.steelDark, 0, 0, 0, { parent:cncScreen, rough:0.4 });
+  box(0.44, 0.3, 0.02, 0x7FC6EA, 0, 0, 0.05, { parent:cncScreen, rough:0.15, cast:false });
+  cyl(0.05, 0.03, 0xD64545, -0.22, 1.33, 0.2, { parent:cncPanel, seg:10, cast:false });
 
   function andon(parent, x, y, z){
     cyl(0.05, 0.6, COL.steelDark, x, y + 0.3, z, { parent:parent, seg:10, cast:false });
@@ -404,7 +470,8 @@ body{
     var on = new THREE.MeshStandardMaterial({ color:COL.lampOn, emissive:COL.lampOn, emissiveIntensity:0.9, roughness:0.4 });
     cyl(0.11, 0.17, COL.lampOn, x, y + 1.06, z, { parent:parent, seg:12, cast:false, mat:on });
   }
-  andon(cnc, 2.65, 2.4, -1.0);
+  plate(cnc, 'ЧПУ · ГОРИЗОНТАЛЬНАЯ РЕЗКА ППУ', 1.9, 0.26, -1.4, 0.72, 1.42, 0);
+  andon(cnc, -2.78, 2.78, -1.48);
 
   var feedBlock = box(BW, BH, BD, FOAM[3], 22.8, 0.52, 3.9, { rough:0.97 });
   var cutSheet = box(BW, 0.1, BD, SHEET[0], 18.4, 1.95, 2.7, { rough:0.95 });
@@ -425,21 +492,62 @@ body{
   box(0.1, 0.84, 0.1, COL.blue, 1.3, 0.42, -0.55, { parent:table });
   box(0.1, 0.84, 0.1, COL.blue, -1.3, 0.42, 0.55, { parent:table });
   box(0.1, 0.84, 0.1, COL.blue, 1.3, 0.42, 0.55, { parent:table });
-  cyl(0.22, 1.2, COL.film, 0, 1.5, -0.78, { parent:table, rz:PI / 2, rough:0.6 });
+  box(0.08, 0.74, 0.08, COL.steel, -0.68, 1.27, -0.78, { parent:table, rough:0.4, metal:0.6 });
+  box(0.08, 0.74, 0.08, COL.steel, 0.68, 1.27, -0.78, { parent:table, rough:0.4, metal:0.6 });
+  cyl(0.22, 1.3, COL.film, 0, 1.52, -0.78, { parent:table, rz:PI / 2, seg:16, rough:0.6 });
+  box(2.5, 0.06, 1.0, COL.steel, 0, 0.3, 0, { parent:table, rough:0.5, metal:0.4, cast:false });
   box(0.9, 0.5, 0.7, COL.cover, 1.55, 1.15, 0.25, { parent:table, rough:0.9 });
 
+  // ВУМ-01: рольганг подачи, сварочная планка рукава, прессовая рама с
+  // гидроцилиндрами, вакуумный насос со шлангом, барабан скрутки в рулон.
   var vum = group(6.85, 0, 12.1);
-  box(2.4, 1.5, 2.6, COL.white, 0, 0.75, 0, { parent:vum, rough:0.5 });
-  box(2.5, 0.2, 2.7, COL.blue, 0, 1.6, 0, { parent:vum, rough:0.5 });
-  box(0.28, 1.5, 2.6, COL.white, -1.32, 2.45, 0, { parent:vum, rough:0.5 });
-  box(0.28, 1.5, 2.6, COL.white, 1.32, 2.45, 0, { parent:vum, rough:0.5 });
-  box(2.9, 0.22, 2.8, COL.steelDark, 0, 3.2, 0, { parent:vum, rough:0.5, metal:0.4 });
-  box(0.55, 0.8, 0.35, COL.steelDark, 1.5, 1.6, 0.9, { parent:vum, rough:0.45 });
-  box(0.4, 0.28, 0.06, 0x8FD4F2, 1.5, 1.85, 0.74, { parent:vum, rough:0.2, cast:false });
-  var press = box(2.0, 0.26, 2.2, COL.steelDark, 0, 2.4, 0, { parent:vum, rough:0.5, metal:0.5 });
-  box(1.7, 0.12, 1.2, COL.steel, 0, 1.05, 1.8, { parent:vum, rough:0.6, metal:0.3 });
-  box(1.7, 0.12, 1.2, COL.steel, 0, 1.05, -1.8, { parent:vum, rough:0.6, metal:0.3 });
-  andon(vum, -1.3, 3.2, -1.0);
+  var VT = 1.02;                                     // верх стола
+  box(2.2, 0.92, 3.3, COL.white, 0, 0.46, 0, { parent:vum, rough:0.55 });          // тумба
+  box(2.26, 0.1, 3.36, COL.blue, 0, VT - 0.05, 0, { parent:vum, rough:0.55 });     // стол
+  box(2.28, 0.26, 0.12, COL.blue, 0, 0.6, -1.7, { parent:vum, rough:0.55, cast:false });
+  box(0.9, 0.5, 0.06, 0x8FD4F2, -0.5, 0.62, 1.68, { parent:vum, rough:0.3, cast:false });   // окно насосного отсека
+  for (var vz = -1.55; vz <= -1.0; vz += 0.26){
+    cyl(0.05, 1.9, COL.steel, 0, VT - 0.05, vz, { parent:vum, rz:PI / 2, seg:10, rough:0.3, metal:0.75, cast:false });
+  }
+  box(1.95, 0.1, 0.14, 0xC94B45, 0, VT + 0.06, -0.92, { parent:vum, rough:0.5 });  // сварочная планка рукава
+  box(1.95, 0.06, 0.1, COL.steelDark, 0, VT + 0.13, -0.92, { parent:vum, rough:0.4, metal:0.5, cast:false });
+  // прессовая рама
+  for (var px = -1; px <= 1; px += 2){
+    for (var pz = -1; pz <= 1; pz += 2){
+      box(0.17, 1.6, 0.17, COL.steelDark, 1.03 * px, 1.82, 1.08 * pz, { parent:vum, rough:0.5, metal:0.45 });
+    }
+    box(0.22, 0.24, 2.5, COL.white, 1.03 * px, 2.72, 0, { parent:vum, rough:0.5 });
+  }
+  box(2.3, 0.24, 0.26, COL.white, 0, 2.72, -1.08, { parent:vum, rough:0.5 });
+  box(2.3, 0.24, 0.26, COL.white, 0, 2.72, 1.08, { parent:vum, rough:0.5 });
+  cyl(0.14, 0.52, COL.steel, -0.52, 2.34, 0, { parent:vum, seg:14, rough:0.35, metal:0.7 });   // гидроцилиндры
+  cyl(0.14, 0.52, COL.steel, 0.52, 2.34, 0, { parent:vum, seg:14, rough:0.35, metal:0.7 });
+  cyl(0.055, 0.5, 0xCDD3D6, -0.52, 1.95, 0, { parent:vum, seg:10, rough:0.2, metal:0.9, cast:false });
+  cyl(0.055, 0.5, 0xCDD3D6, 0.52, 1.95, 0, { parent:vum, seg:10, rough:0.2, metal:0.9, cast:false });
+  var press = box(1.92, 0.2, 1.8, COL.steelDark, 0, 2.0, 0, { parent:vum, rough:0.45, metal:0.55 });
+  box(1.96, 0.06, 1.84, COL.blue, 0, 1.89, 0, { parent:vum, rough:0.5, cast:false, mat: mat(COL.blue, 0.5) });
+  // вакуумный насос со шлангом
+  box(0.66, 0.42, 1.0, COL.steelDark, -1.5, 0.21, 0.75, { parent:vum, rough:0.6 });
+  cyl(0.21, 0.62, COL.blue, -1.5, 0.63, 0.55, { parent:vum, rz:PI / 2, seg:16, rough:0.45, metal:0.3 });
+  box(0.42, 0.44, 0.42, COL.steelDark, -1.5, 0.64, 1.1, { parent:vum, rough:0.5, metal:0.4 });
+  cyl(0.06, 0.3, COL.steel, -1.5, 0.95, 1.1, { parent:vum, seg:10, rough:0.3, metal:0.8, cast:false });
+  hose(vum, [[-1.5, 1.08, 1.1], [-1.35, 1.9, 0.75], [-1.1, 2.45, 0.3], [-0.62, 2.5, 0.02]], 0.07, COL.steelDark);
+  // барабан скрутки на выходе
+  cyl(0.36, 2.0, COL.steelDark, 0, 1.3, 1.34, { parent:vum, rz:PI / 2, seg:18, rough:0.5, metal:0.4 });
+  cyl(0.2, 2.04, COL.steel, 0, 1.3, 1.34, { parent:vum, rz:PI / 2, seg:14, rough:0.3, metal:0.7, cast:false });
+  box(0.14, 1.0, 0.95, COL.white, -1.05, 1.2, 1.34, { parent:vum, rough:0.5 });
+  box(0.14, 1.0, 0.95, COL.white, 1.05, 1.2, 1.34, { parent:vum, rough:0.5 });
+  box(1.9, 0.08, 0.7, COL.steel, 0, VT - 0.02, 1.0, { parent:vum, rough:0.35, metal:0.6, cast:false });
+  // пульт
+  var vumPanel = group(1.45, 0, -1.2, vum);
+  cyl(0.07, 1.15, COL.steel, 0, 0.58, 0, { parent:vumPanel, seg:10, rough:0.4, metal:0.6 });
+  box(0.5, 0.42, 0.26, COL.white, 0, 1.3, 0, { parent:vumPanel, rough:0.5 });
+  var vumScreen = tilted(vumPanel, 0, 1.52, 0.02, -0.6);
+  box(0.42, 0.3, 0.06, COL.steelDark, 0, 0, 0, { parent:vumScreen, rough:0.4 });
+  box(0.34, 0.22, 0.02, 0x7FC6EA, 0, 0, 0.045, { parent:vumScreen, rough:0.15, cast:false });
+  cyl(0.055, 0.035, 0xD64545, 0.17, 1.12, 0.14, { parent:vumPanel, seg:10, cast:false });
+  plate(vum, 'ВУМ-01', 0.9, 0.24, 0, 0.66, -1.68, PI);
+  andon(vum, -1.03, 2.84, -1.08);
 
   var pair = group(2.4, 0.95, 12.4);
   var mat1 = box(2.0, 0.11, 0.85, COL.cover, 0, 0.06, 0, { parent:pair, rough:0.85 });
@@ -587,7 +695,8 @@ body{
   function updateCards(){                        // карточка проявляется, когда камера подходит к участку
     for (var i = 0; i < CARDS.length; i++){
       var s = CARDS[i];
-      var op = 1 - clamp01((s.position.distanceTo(camera.position) - 15) / 11);
+      var d = s.position.distanceTo(camera.position);
+      var op = Math.min(clamp01((d - 7) / 4), 1 - clamp01((d - 17) / 9));
       s.material.opacity = op;
       s.visible = op > 0.02;
     }
@@ -724,21 +833,21 @@ body{
       var a = ease(seg(c, 0.2, 2.6));
       feedBlock.visible = true;
       feedBlock.position.set(lerp(22.8, 18.4, a), lerp(0.52, 1.42, a), lerp(3.9, 2.7, a));
-      cutSheet.visible = false; blade.position.x = -2.4;
+      cutSheet.visible = false; blade.position.x = -1.8;
     } else if (c < 7.6){
       var a2 = seg(c, 2.6, 7.6);
       feedBlock.visible = true; feedBlock.position.set(18.4, 1.42, 2.7);
-      blade.position.x = lerp(-2.4, 2.4, ease(a2));
+      blade.position.x = lerp(-1.8, 2.2, ease(a2));
       cutSheet.visible = true;
       cutSheet.position.set(18.4, 1.97 + 0.12 * ease(a2), 2.7);
     } else if (c < 11){
       var a3 = ease(seg(c, 7.6, 11));
       feedBlock.visible = true; feedBlock.position.set(18.4, 1.42, 2.7);
-      blade.position.x = lerp(2.4, -2.4, ease(seg(c, 7.6, 9.4)));
+      blade.position.x = lerp(2.2, -1.8, ease(seg(c, 7.6, 9.4)));
       cutSheet.visible = true;
       cutSheet.position.set(lerp(18.4, stackX[k], a3), lerp(2.1, stackTop[k] + 0.06, a3 * a3), lerp(2.7, 3.1, a3));
     } else {
-      feedBlock.visible = false; cutSheet.visible = false; blade.position.x = -2.4;
+      feedBlock.visible = false; cutSheet.visible = false; blade.position.x = -1.8;
     }
   }
 
@@ -775,24 +884,24 @@ body{
       mat2.position.y = lerp(0.06, 0.19, ease(seg(p, 9.4, 11.2)));
       sleeve.visible = p > 11.2;
       var a4 = ease(seg(p, 11.4, 13));
-      pair.position.set(lerp(2.4, 6.85, a4), 0.95, lerp(12.4, 11.0, a4));
+      pair.position.set(lerp(2.4, 6.85, a4), lerp(0.95, 1.02, a4), lerp(12.4, 10.9, a4));
       pair.scale.y = 1;
     } else if (p >= 13 && p < 14.6){
       pair.visible = true;
       var a5 = ease(seg(p, 13, 13.6));
-      pair.position.set(6.85, lerp(0.95, 1.78, a5), lerp(11.0, 12.1, a5));
+      pair.position.set(6.85, 1.02, lerp(10.9, 12.1, a5));
       var a6 = ease(seg(p, 13.6, 14.4));
       pair.scale.y = lerp(1, 0.22, a6);
-      press.position.y = lerp(2.4, 2.05, a6);
+      press.position.y = lerp(2.0, 1.27, a6);
     } else {
       tableSheet.visible = false; tableCover.visible = false; pair.visible = false;
-      press.position.y = lerp(2.05, 2.4, ease(seg(p, 14.6, 15.4)));
+      press.position.y = lerp(1.27, 2.0, ease(seg(p, 14.6, 15.4)));
     }
 
     if (p >= 14.2 && p < 16){
       liveRoll.visible = true;
       var a7 = ease(seg(p, 14.2, 15.0)), a8 = ease(seg(p, 15.0, 16));
-      liveRoll.position.set(lerp(6.85, 6.6, a8), lerp(1.5, ROLL_R, a7), lerp(13.5, 17.4, a8));
+      liveRoll.position.set(lerp(6.85, 6.6, a8), lerp(1.25, ROLL_R, a7), lerp(13.44, 17.4, a8));
       liveRoll.rotation.x = a8 * 6;
     } else liveRoll.visible = false;
   }
