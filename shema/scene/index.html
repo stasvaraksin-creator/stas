@@ -34,6 +34,13 @@ body{
 }
 .title h1{margin:0; font-family:var(--font-d); font-weight:800; font-size:clamp(.98rem,.72rem + .9vw,1.3rem); letter-spacing:-.01em; line-height:1.15}
 .title p{margin:4px 0 0; font-size:.78rem; color:var(--ink-2); line-height:1.4}
+.title .mode{
+  display:inline-block; margin-top:8px; margin-left:6px; pointer-events:auto;
+  font-family:var(--font-d); font-weight:700; font-size:.62rem; letter-spacing:.1em;
+  text-transform:uppercase; color:#fff; background:var(--accent); border-radius:999px;
+  padding:4px 10px; text-decoration:none;
+}
+.title .mode:hover{filter:brightness(1.07)}
 .title .tag{
   display:inline-block; margin-top:8px; font-family:var(--font-d); font-weight:700;
   font-size:.62rem; letter-spacing:.12em; text-transform:uppercase; color:var(--accent-ink);
@@ -81,6 +88,7 @@ body{
     <h1>Цех медицинских матрасов</h1>
     <p>405 м², три помещения, четыре человека. Полный такт — от подачи фуры с блоками ППУ до отгрузки вакуумных рулонов.</p>
     <span class="tag" id="tag">Такт 48 секунд · сцена зациклена</span>
+    <a class="mode" id="mode" href="#orbit">Покрутить вручную →</a>
   </div>
 
   <div class="hud card meta">
@@ -372,6 +380,26 @@ body{
   fadeable(gate(13.2, 9, 3, true), 0, 1, 13.2, 9);
   var gate2 = fadeable(gate(9, 15.75, 3.5, false), 1, 0, 9, 15.75);
   fadeable(gate(9, 21.25, 3.5, false), 1, 0, 9, 21.25);
+
+  /* ================= вывеска над цехом ================= */
+  var texLoader = new THREE.TextureLoader();
+  function signBoard(w, h, x, y, z, ry){
+    var front = new THREE.MeshStandardMaterial({ map: texLoader.load('img/sign.png'), roughness:0.55 });
+    var back = new THREE.MeshStandardMaterial({ map: texLoader.load('img/sign.png'), roughness:0.55 });
+    back.map.wrapS = THREE.RepeatWrapping; back.map.repeat.x = -1; back.map.offset.x = 1;
+    var edge = mat(0xECEDE8, 0.6);
+    var m = new THREE.Mesh(BOX, [edge, edge, edge, edge, front, back]);
+    m.scale.set(w, h, 0.18); m.position.set(x, y, z); m.rotation.y = ry || 0;
+    m.castShadow = true; m.receiveShadow = true;
+    scene.add(m);
+    return m;
+  }
+  signBoard(7.2, 1.56, 22.4, 5.05, 8.95, 0);                       // главный фасад, над воротами
+  box(0.14, 1.05, 0.14, COL.steel, 19.4, 4.28, 8.95, { rough:0.45, metal:0.55 });
+  box(0.14, 1.05, 0.14, COL.steel, 25.4, 4.28, 8.95, { rough:0.45, metal:0.55 });
+  signBoard(3.6, 0.78, 9.14, 4.45, 15.75, PI / 2);                 // над воротами отгрузки
+  box(0.12, 0.85, 0.12, COL.steel, 9.14, 3.85, 14.5, { rough:0.45, metal:0.55 });
+  box(0.12, 0.85, 0.12, COL.steel, 9.14, 3.85, 17.0, { rough:0.45, metal:0.55 });
 
   /* ================= помещение 3: штабель, приёмка, ЧПУ ================= */
   var BW = 2.0, BH = 1.0, BD = 0.85;
@@ -1033,6 +1061,46 @@ body{
   ]);
   var camPos = new THREE.Vector3(), camTgt = new THREE.Vector3();
 
+  // Ручной режим (ссылка #orbit): камера под мышью и пальцами, сцена продолжает идти
+  var ORBIT = (location.hash || '').toLowerCase().indexOf('orbit') >= 0;
+  var orb = { th: -0.75, ph: 0.82, d: 44, tx: 15, ty: 1.6, tz: 11, drag: false, px: 0, py: 0, pinch: 0 };
+  function orbitCamera(){
+    var sp = Math.sin(orb.ph), cp = Math.cos(orb.ph);
+    camera.position.set(orb.tx + orb.d * sp * Math.sin(orb.th), orb.ty + orb.d * cp, orb.tz + orb.d * sp * Math.cos(orb.th));
+    camera.lookAt(orb.tx, orb.ty, orb.tz);
+  }
+  function orbitInit(){
+    var el = renderer.domElement;
+    el.style.touchAction = 'none'; el.style.cursor = 'grab';
+    el.addEventListener('pointerdown', function(e){
+      if (e.pointerType === 'touch' && orb.pinch) return;
+      orb.drag = true; orb.px = e.clientX; orb.py = e.clientY; el.style.cursor = 'grabbing';
+      if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
+    });
+    el.addEventListener('pointermove', function(e){
+      if (!orb.drag) return;
+      orb.th -= (e.clientX - orb.px) * 0.005;
+      orb.ph = Math.max(0.1, Math.min(1.46, orb.ph - (e.clientY - orb.py) * 0.004));
+      orb.px = e.clientX; orb.py = e.clientY;
+    });
+    function stop(){ orb.drag = false; el.style.cursor = 'grab'; }
+    el.addEventListener('pointerup', stop); el.addEventListener('pointercancel', stop);
+    el.addEventListener('wheel', function(e){
+      e.preventDefault();
+      orb.d = Math.max(7, Math.min(95, orb.d * (1 + (e.deltaY > 0 ? 0.09 : -0.09))));
+    }, { passive: false });
+    el.addEventListener('touchmove', function(e){                 // щипок — масштаб
+      if (e.touches.length !== 2) return;
+      e.preventDefault();
+      var dx = e.touches[0].clientX - e.touches[1].clientX, dy = e.touches[0].clientY - e.touches[1].clientY;
+      var dist = Math.sqrt(dx * dx + dy * dy);
+      if (orb.pinch) orb.d = Math.max(7, Math.min(95, orb.d * orb.pinch / dist));
+      orb.pinch = dist; orb.drag = false;
+    }, { passive: false });
+    el.addEventListener('touchend', function(){ orb.pinch = 0; });
+  }
+  window.addEventListener('hashchange', function(){ location.reload(); });
+
   /* ================= подписи стадий ================= */
   var STAGES = [
     [0, 'Подача фуры к воротам 5', 'Блоки ППУ приходят в сжатом виде'],
@@ -1273,22 +1341,36 @@ body{
   window.addEventListener('resize', resize);
   resize();
 
-  function frame(){
-    requestAnimationFrame(frame);
-    if (document.hidden){ clock.getDelta(); return; }
-    time = (time + Math.min(clock.getDelta(), 0.1)) % T;
-    var t = time;
+  function step(t, exact){
     animateTrucks(t); animateJack(t); animateUnload(t); animateCNC(t);
     animatePack(t); animateLoading(t); animateWorkers(t); updateHUD(t);
-    var u = t / T;
-    camPath.getPointAt(u, camPos); camLook.getPointAt(u, camTgt);
-    camera.position.lerp(camPos, 0.12);
-    camera.lookAt(camTgt);
+    if (ORBIT){
+      orbitCamera();
+    } else {
+      var u = t / T;
+      camPath.getPointAt(u, camPos); camLook.getPointAt(u, camTgt);
+      camera.position.lerp(camPos, exact ? 1 : 0.12);
+      camera.lookAt(camTgt);
+    }
     updateFade(); updateCards();
     renderer.render(scene, camera);
   }
-  camPath.getPointAt(0, camPos); camera.position.copy(camPos);
-  camLook.getPointAt(0, camTgt); camera.lookAt(camTgt);
+  window.__step = step;                                  // покадровый рендер для записи видео
+  function frame(){
+    requestAnimationFrame(frame);
+    if (document.hidden || window.__paused){ clock.getDelta(); return; }
+    time = (time + Math.min(clock.getDelta(), 0.1)) % T;
+    step(time, false);
+  }
+  if (ORBIT){
+    orbitInit(); orbitCamera();
+    document.getElementById('mode').textContent = '← Вернуться к облёту';
+    document.getElementById('mode').setAttribute('href', '#tour');
+    document.getElementById('tag').textContent = 'Ручной режим · тяните мышью, колесо — масштаб';
+  } else {
+    camPath.getPointAt(0, camPos); camera.position.copy(camPos);
+    camLook.getPointAt(0, camTgt); camera.lookAt(camTgt);
+  }
   frame();
 })();
 </script>
