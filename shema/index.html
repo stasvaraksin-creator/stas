@@ -1,0 +1,674 @@
+<title>Карта производства матрасов</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Golos+Text:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: план помещений слева (липкий на десктопе), семь операций справа; на телефоне — стопкой */
+:root{
+  --bg:#EDEFEE; --panel:#FFFFFF; --panel-2:#F4F6F5; --panel-3:#E8ECEA;
+  --ink:#15191A; --ink-2:#596260; --ink-3:#8A938F;
+  --line:#D3D9D7; --wall:#2C3432; --yard:#E3E6E5;
+  --accent:#CE7938; --accent-ink:#9A5720; --accent-soft:#F7E7D7;
+  --teal:#2A9A88; --teal-soft:#DEF0EC;
+  --r1:#E4F2EE; --r2:#E8F1F7; --r3:#FBF1DA;
+  --dens-white:#FFFFFF; --dens-pink:#E8508D; --dens-blue:#2FA3DB;
+  --on-white:#15191A; --on-white-2:#4D5553;
+  --shadow:0 1px 2px rgba(20,30,28,.05), 0 10px 26px rgba(20,30,28,.07);
+  --font-d:'Montserrat', system-ui, sans-serif;
+  --font-b:'Golos Text', system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#121615; --panel:#1A1F1E; --panel-2:#212725; --panel-3:#272E2C;
+  --ink:#ECEFEE; --ink-2:#9BA4A1; --ink-3:#6F7A77;
+  --line:#2F3735; --wall:#BCC7C4; --yard:#191D1C;
+  --accent:#E09259; --accent-ink:#F0B383; --accent-soft:#3A2A1D;
+  --teal:#45B9A3; --teal-soft:#1B3330;
+  --r1:#152B26; --r2:#17242E; --r3:#2A2417;
+  --dens-white:#E6EBE9; --dens-pink:#EC6A9E; --dens-blue:#4FB6E8;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 26px rgba(0,0,0,.28);
+  color-scheme: dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#121615; --panel:#1A1F1E; --panel-2:#212725; --panel-3:#272E2C;
+  --ink:#ECEFEE; --ink-2:#9BA4A1; --ink-3:#6F7A77;
+  --line:#2F3735; --wall:#BCC7C4; --yard:#191D1C;
+  --accent:#E09259; --accent-ink:#F0B383; --accent-soft:#3A2A1D;
+  --teal:#45B9A3; --teal-soft:#1B3330;
+  --r1:#152B26; --r2:#17242E; --r3:#2A2417;
+  --dens-white:#E6EBE9; --dens-pink:#EC6A9E; --dens-blue:#4FB6E8;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 26px rgba(0,0,0,.28);
+  color-scheme: dark;
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:var(--font-b); font-size:15px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{
+  max-width:1420px; margin:0 auto;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+  padding-block:28px 56px;
+}
+h1,h2,h3{font-family:var(--font-d); text-wrap:balance; margin:0}
+a{color:var(--accent-ink)}
+.eyebrow{
+  font-family:var(--font-d); font-weight:700; font-size:.68rem;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3); margin:0;
+}
+
+/* ——— шапка ——— */
+header.top{display:grid; gap:14px; margin-bottom:26px}
+h1{font-size:clamp(1.8rem,1.1rem + 2.6vw,3rem); font-weight:800; letter-spacing:-.02em; line-height:1.05}
+.lede{max-width:62ch; color:var(--ink-2); font-size:1.02rem; margin:0}
+.chain{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:0; padding:0; list-style:none}
+.chain li{
+  font-family:var(--font-d); font-weight:700; font-size:.74rem; letter-spacing:.04em;
+  background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:5px 12px;
+}
+.chain li.end{background:var(--teal-soft); border-color:transparent; color:var(--ink)}
+.chain .arw{color:var(--accent); font-weight:700}
+.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:12px; overflow:hidden}
+.stat{background:var(--panel); padding:12px 14px; min-width:0}
+.stat b{display:block; font-family:var(--font-d); font-weight:800; font-size:1.3rem; letter-spacing:-.01em; font-variant-numeric:tabular-nums}
+.stat span{display:block; color:var(--ink-3); font-size:.78rem; line-height:1.35; margin-top:2px}
+
+/* ——— сетка ——— */
+main{display:grid; gap:22px; align-items:start}
+@media (min-width:1020px){ main{grid-template-columns:minmax(0,1.12fr) minmax(0,.88fr); gap:26px} }
+
+/* ——— панель плана ——— */
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); min-width:0}
+@media (min-width:1020px){ .plan-col{position:sticky; top:max(14px, env(safe-area-inset-top, 0px))} }
+.panel-head{display:flex; flex-wrap:wrap; gap:10px 16px; align-items:baseline; justify-content:space-between; padding:14px 16px 10px}
+.panel-head h2{font-size:1.02rem; font-weight:700; letter-spacing:-.01em}
+.panel-head .note{color:var(--ink-3); font-size:.78rem}
+.controls{display:flex; flex-wrap:wrap; gap:8px; padding:0 16px 12px; align-items:center}
+.toggle{display:inline-flex; align-items:center; gap:6px; font-size:.82rem; color:var(--ink-2); background:var(--panel-2); border:1px solid var(--line); border-radius:999px; padding:5px 11px 5px 8px; cursor:pointer; user-select:none}
+.toggle input{accent-color:var(--accent); margin:0; width:14px; height:14px}
+.toggle:hover{border-color:var(--ink-3)}
+.play{
+  margin-left:auto; display:inline-flex; align-items:center; gap:7px; cursor:pointer;
+  font-family:var(--font-d); font-weight:700; font-size:.8rem; letter-spacing:.02em;
+  color:#fff; background:var(--accent); border:0; border-radius:999px; padding:8px 15px;
+}
+.play:hover{filter:brightness(1.06)}
+.play .ico{display:block; width:9px; height:11px; background:currentColor; clip-path:polygon(0 0,100% 50%,0 100%)}
+.play.is-playing .ico{clip-path:polygon(0 0,34% 0,34% 100%,0 100%,0 0),polygon(66% 0,100% 0,100% 100%,66% 100%)}
+.play.is-playing .ico{clip-path:none; background:none; box-shadow:inset 3px 0 currentColor, inset -3px 0 currentColor; width:9px}
+.plan-scroll{overflow-x:auto; padding:0 10px 4px}
+svg.plan{display:block; width:100%; height:auto; min-width:640px}
+.scroll-hint{display:none; color:var(--ink-3); font-size:.75rem; padding:0 16px 10px}
+@media (max-width:700px){ .scroll-hint{display:block} }
+.legend{display:flex; flex-wrap:wrap; gap:10px 18px; border-top:1px solid var(--line); padding:12px 16px; font-size:.79rem; color:var(--ink-2)}
+.legend i{display:inline-block; width:14px; height:10px; border-radius:2px; margin-right:6px; vertical-align:middle}
+.legend .l-route{background:none; height:0; border-top:3px dashed var(--accent); border-radius:0}
+.legend .l-gate{background:var(--accent)}
+.legend .l-r3{background:var(--r3); border:1px solid var(--line)}
+.legend .l-r2{background:var(--r2); border:1px solid var(--line)}
+.legend .l-r1{background:var(--r1); border:1px solid var(--line)}
+
+/* ——— план: графика ——— */
+.plan .yard{fill:var(--yard)}
+.plan .floor-1{fill:var(--r1)} .plan .floor-2{fill:var(--r2)} .plan .floor-3{fill:var(--r3)}
+.plan .wall{fill:none; stroke:var(--wall); stroke-width:.3; stroke-linejoin:miter}
+.plan .wall-in{fill:none; stroke:var(--wall); stroke-width:.26}
+.plan .part{fill:none; stroke:var(--ink-3); stroke-width:.12; stroke-dasharray:.8 .5}
+.plan .door{fill:none; stroke:var(--ink-3); stroke-width:.1; stroke-dasharray:.35 .3}
+.plan .gate rect{fill:var(--accent); opacity:.5}
+.plan .gate.is-on rect{opacity:1}
+.plan .gate circle{fill:var(--panel); stroke:var(--accent); stroke-width:.1}
+.plan .gate.is-on circle{fill:var(--accent); stroke:var(--accent)}
+.plan .gate text{font:700 .62px var(--font-d); fill:var(--accent-ink); text-anchor:middle}
+.plan .gate.is-on text{fill:#fff}
+.plan .truck{fill:var(--panel-3); stroke:var(--line); stroke-width:.08}
+.plan .truck-cab{fill:var(--ink-3); opacity:.45}
+.plan .t-label{font:500 .55px var(--font-b); fill:var(--ink-3); text-anchor:middle}
+.plan .zone{cursor:pointer}
+.plan .zone rect{fill:var(--panel); fill-opacity:.62; stroke:var(--ink-3); stroke-width:.07; transition:fill-opacity .2s, stroke .2s}
+.plan .zone text{font:600 .58px var(--font-b); fill:var(--ink); text-anchor:middle; pointer-events:none}
+.plan .zone .sub{font-weight:400; fill:var(--ink-2); font-size:.5px}
+.plan .zone:hover rect{stroke:var(--accent)}
+.plan .zone:focus-visible rect{stroke:var(--accent); stroke-width:.14}
+.plan .zone.is-on rect{fill:var(--accent-soft); fill-opacity:1; stroke:var(--accent); stroke-width:.16}
+.plan .zone.dens-w rect{fill:var(--dens-white); fill-opacity:.95}
+.plan .zone.dens-p rect{fill:var(--dens-pink); fill-opacity:.2; stroke:var(--dens-pink)}
+.plan .zone.dens-b rect{fill:var(--dens-blue); fill-opacity:.2; stroke:var(--dens-blue)}
+.plan .zone.dens-w.is-on rect,.plan .zone.dens-p.is-on rect,.plan .zone.dens-b.is-on rect{stroke:var(--accent); stroke-width:.16}
+.plan .zone.dens-w text{fill:var(--on-white)}
+.plan .zone.dens-w .sub{fill:var(--on-white-2)}
+.plan .leg{fill:none; stroke:var(--accent); stroke-width:.2; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:.85 .6; opacity:.3; transition:opacity .2s, stroke-width .2s}
+.plan .leg.is-on{opacity:1; stroke-width:.28}
+.plan .person circle{fill:var(--teal)}
+.plan .person rect{fill:var(--teal)}
+.plan .room-badge circle{fill:var(--panel); stroke:var(--wall); stroke-width:.12}
+.plan .room-badge text.n{font:800 1.5px var(--font-d); fill:var(--ink); text-anchor:middle}
+.plan .room-badge text.a{font:500 .6px var(--font-b); fill:var(--ink-2); text-anchor:middle}
+.plan .dim line{stroke:var(--ink-3); stroke-width:.05}
+.plan .dim text{font:500 .58px var(--font-b); fill:var(--ink-2); text-anchor:middle}
+.plan .yard-label{font:500 .62px var(--font-b); fill:var(--ink-3); text-anchor:middle}
+.plan .scale line{stroke:var(--ink-2); stroke-width:.07}
+.plan .scale text{font:500 .55px var(--font-b); fill:var(--ink-2)}
+.plan #marker circle{fill:var(--accent); stroke:var(--panel); stroke-width:.12}
+.plan.no-route .leg, .plan.no-route #marker{display:none}
+.plan.no-people .person{display:none}
+.plan.no-dims .dim{display:none}
+
+/* ——— шаги ——— */
+.steps{display:grid; gap:10px}
+.steps > .eyebrow{margin-bottom:-2px}
+.step{background:var(--panel); border:1px solid var(--line); border-radius:14px; overflow:hidden; transition:border-color .2s}
+.step.is-open{border-color:var(--accent); box-shadow:var(--shadow)}
+.step-head{
+  width:100%; display:grid; grid-template-columns:34px 1fr auto; gap:12px; align-items:center;
+  background:none; border:0; padding:13px 14px; cursor:pointer; text-align:left; color:inherit; font:inherit;
+}
+.step-head:focus-visible{outline:2px solid var(--accent); outline-offset:-3px}
+.step-n{
+  display:grid; place-items:center; width:30px; height:30px; border-radius:50%;
+  background:var(--panel-3); color:var(--ink-2);
+  font-family:var(--font-d); font-weight:800; font-size:.92rem; font-variant-numeric:tabular-nums;
+}
+.step.is-open .step-n{background:var(--accent); color:#fff}
+.step-t{display:block; min-width:0}
+.step-t b{display:block; font-family:var(--font-d); font-weight:700; font-size:.97rem; letter-spacing:-.01em}
+.step-t small{display:block; color:var(--ink-3); font-size:.78rem; margin-top:1px}
+.chev{width:9px; height:9px; border-right:2px solid var(--ink-3); border-bottom:2px solid var(--ink-3); transform:rotate(45deg); transition:transform .2s; margin-right:4px}
+.step.is-open .chev{transform:rotate(-135deg); border-color:var(--accent)}
+.step-body{padding:0 14px 15px; display:grid; gap:12px}
+.step-body p{margin:0; color:var(--ink-2)}
+.facts{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:10px; overflow:hidden; list-style:none; margin:0; padding:0}
+.facts li{background:var(--panel-2); padding:8px 11px; min-width:0}
+.facts span{display:block; font-family:var(--font-d); font-weight:700; font-size:.64rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3)}
+.facts b{font-weight:600; font-size:.88rem; line-height:1.4}
+figure{margin:0; border-radius:10px; overflow:hidden; background:var(--panel-2); border:1px solid var(--line)}
+figure img{display:block; width:100%; max-width:100%; height:auto; aspect-ratio:16/9; object-fit:cover}
+figcaption{padding:7px 11px; font-size:.78rem; color:var(--ink-3)}
+.mach{display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:10px 12px}
+.mach b{font-family:var(--font-d); font-size:.86rem}
+.mach span{display:block; color:var(--ink-3); font-size:.78rem}
+.mach a{font-weight:600; font-size:.82rem; white-space:nowrap}
+
+/* ——— калькулятор раскроя ——— */
+.calc{background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:11px 12px; display:grid; gap:10px}
+.calc .eyebrow{color:var(--ink-3)}
+.calc-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(104px,1fr)); gap:8px}
+.calc label{display:grid; gap:3px; font-size:.72rem; color:var(--ink-3); min-width:0}
+.calc input{
+  width:100%; min-width:0; font:600 .92rem/1.2 var(--font-b); font-variant-numeric:tabular-nums;
+  color:var(--ink); background:var(--panel); border:1px solid var(--line); border-radius:7px; padding:7px 9px;
+}
+.calc input:focus-visible{outline:2px solid var(--accent); outline-offset:-1px}
+.calc-out{display:grid; grid-template-columns:repeat(auto-fit,minmax(100px,1fr)); gap:8px}
+.calc-out div{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 10px}
+.calc-out b{display:block; font-family:var(--font-d); font-weight:800; font-size:1.15rem; font-variant-numeric:tabular-nums}
+.calc-out span{display:block; font-size:.72rem; color:var(--ink-3); line-height:1.3}
+.calc .hint{font-size:.74rem; color:var(--ink-3); margin:0}
+
+/* ——— нижние секции ——— */
+.below{display:grid; gap:16px; margin-top:26px}
+@media (min-width:760px){ .below{grid-template-columns:repeat(2,minmax(0,1fr))} .below .wide{grid-column:1/-1} }
+.card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:15px 16px; display:grid; gap:10px; align-content:start}
+.card h2{font-size:.98rem; font-weight:700}
+.card p{margin:0; color:var(--ink-2); font-size:.9rem}
+.crew{display:grid; gap:8px; list-style:none; margin:0; padding:0}
+.crew li{display:grid; grid-template-columns:auto 1fr; gap:10px; align-items:start; font-size:.9rem}
+.dots{display:flex; gap:3px; padding-top:4px}
+.dots i{width:9px; height:9px; border-radius:50%; background:var(--teal); display:block}
+.dots.empty i{background:var(--line)}
+.dens{display:grid; gap:8px; list-style:none; margin:0; padding:0}
+.dens li{display:grid; grid-template-columns:28px 1fr; gap:10px; align-items:center; font-size:.9rem}
+.dens i{display:block; width:28px; height:18px; border-radius:4px; border:1px solid var(--line)}
+.dens .w{background:var(--dens-white)} .dens .p{background:var(--dens-pink)} .dens .b{background:var(--dens-blue)}
+.assume{list-style:none; margin:0; padding:0; display:grid; gap:7px; font-size:.86rem; color:var(--ink-2)}
+.assume li{padding-left:16px; position:relative}
+.assume li::before{content:""; position:absolute; left:0; top:.6em; width:7px; height:1px; background:var(--accent)}
+footer{margin-top:26px; padding-top:14px; border-top:1px solid var(--line); color:var(--ink-3); font-size:.8rem}
+@media (prefers-reduced-motion: reduce){ *{animation:none !important; transition:none !important; scroll-behavior:auto !important} }
+</style>
+
+<div class="wrap">
+<header class="top">
+  <p class="eyebrow">Производство медицинских матрасов · 3 помещения · 4 человека</p>
+  <h1>Карта производства матрасов</h1>
+  <p class="lede">Путь материала от сжатого блока пенополиуретана, который заезжает в ворота 5, до вакуумного рулона, который уезжает через ворота 2. Нажмите операцию в списке или участок на плане — маршрут подсветится.</p>
+  <ul class="chain">
+    <li>Блок ППУ</li><li class="arw" aria-hidden="true">→</li>
+    <li>Лист 2000×800×100</li><li class="arw" aria-hidden="true">→</li>
+    <li>Матрас в чехле</li><li class="arw" aria-hidden="true">→</li>
+    <li class="end">Рулон на отгрузку</li>
+  </ul>
+  <div class="stats">
+    <div class="stat"><b>405 м²</b><span>три помещения по 135 м²</span></div>
+    <div class="stat"><b>4</b><span>человека в смене: 2 в пом. 3, 2 в пом. 1</span></div>
+    <div class="stat"><b>2000×800×100</b><span>мм — лист ППУ после раскроя</span></div>
+    <div class="stat"><b>2 матраса</b><span>в одном рукаве и одном рулоне</span></div>
+  </div>
+</header>
+
+<main>
+  <div class="plan-col">
+  <section class="panel">
+    <div class="panel-head">
+      <h2>План помещений</h2>
+      <span class="note">масштаб 1:200, сетка в метрах</span>
+    </div>
+    <div class="controls">
+      <label class="toggle"><input type="checkbox" id="t-route" checked> Маршрут</label>
+      <label class="toggle"><input type="checkbox" id="t-people" checked> Персонал</label>
+      <label class="toggle"><input type="checkbox" id="t-dims" checked> Размеры</label>
+      <button class="play" id="play" type="button"><span class="ico" aria-hidden="true"></span><span id="play-label">Проиграть цикл</span></button>
+    </div>
+    <div class="plan-scroll">
+      <svg class="plan" id="plan" viewBox="-2.9 -2.4 36.4 30" role="img" aria-label="План трёх производственных помещений с маршрутом движения материала">
+        <defs>
+          <marker id="arw" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M0 1 L9 5 L0 9 z" fill="var(--accent)"/>
+          </marker>
+        </defs>
+
+        <rect class="yard" x="-2.9" y="-2.4" width="36.4" height="30"/>
+        <text class="yard-label" x="21.5" y="21.2">двор · разворот и подача фур</text>
+
+        <rect class="floor-2" x="0" y="0" width="15" height="9"/>
+        <rect class="floor-3" x="15" y="0" width="15" height="9"/>
+        <rect class="floor-1" x="0" y="9" width="9" height="15"/>
+
+        <!-- фуры -->
+        <g class="trucks">
+          <g><rect class="truck" x="26.1" y="10.1" width="2.8" height="4.1" rx=".2"/><rect class="truck-cab" x="26.3" y="13.1" width="2.4" height="1" rx=".2"/><text class="t-label" x="27.5" y="15.1">подача</text></g>
+          <g><rect class="truck" x="10.8" y="14.2" width="4.3" height="3" rx=".2"/><rect class="truck-cab" x="14" y="14.4" width="1" height="2.6" rx=".2"/><text class="t-label" x="12.9" y="18.1">отгрузка</text></g>
+        </g>
+
+        <!-- стены, проёмы, ворота -->
+        <path class="wall" d="M0 0 H30 V9 H9 V24 H0 Z"/>
+        <path class="wall-in" d="M0 9 H3.4 M5.4 9 H9"/>
+        <path class="door" d="M3.4 9 A2 2 0 0 1 5.4 9"/>
+        <path class="part" d="M15 0 V9"/>
+
+        <g class="gate" data-step="1" data-g="5"><rect x="26" y="8.85" width="3" height=".3"/><circle cx="27.5" cy="9.95" r=".62"/><text x="27.5" y="9.95" dominant-baseline="central">5</text></g>
+        <g class="gate" data-g="4"><rect x="18" y="8.85" width="3" height=".3"/><circle cx="19.5" cy="9.95" r=".62"/><text x="19.5" y="9.95" dominant-baseline="central">4</text></g>
+        <g class="gate" data-g="3"><rect x="11.7" y="8.85" width="3" height=".3"/><circle cx="13.2" cy="9.95" r=".62"/><text x="13.2" y="9.95" dominant-baseline="central">3</text></g>
+        <g class="gate" data-step="7" data-g="2"><rect x="8.85" y="14" width=".3" height="3.5"/><circle cx="9.95" cy="15.75" r=".62"/><text x="9.95" y="15.75" dominant-baseline="central">2</text></g>
+        <g class="gate" data-g="1"><rect x="8.85" y="19.5" width=".3" height="3.5"/><circle cx="9.95" cy="21.25" r=".62"/><text x="9.95" y="21.25" dominant-baseline="central">1</text></g>
+
+        <!-- участки -->
+        <g class="zone" data-step="1" tabindex="0" role="button" aria-label="Приёмка и расправление блоков, помещение 3">
+          <rect x="24.3" y="4.9" width="5.2" height="3.6" rx=".25"/>
+          <text x="26.9" y="6.5">Приёмка</text><text class="sub" x="26.9" y="7.35">и расправление</text>
+        </g>
+        <g class="zone" data-step="2" tabindex="0" role="button" aria-label="Хранение блоков ППУ, помещение 3">
+          <rect x="21.8" y="0.6" width="7.7" height="3.7" rx=".25"/>
+          <text x="25.65" y="2.1">Блоки ППУ</text><text class="sub" x="25.65" y="2.9">хранение штабелями</text>
+        </g>
+        <g class="zone" data-step="3" tabindex="0" role="button" aria-label="ЧПУ станок горизонтальной резки, помещение 3">
+          <rect x="15.7" y="0.9" width="5.4" height="3.6" rx=".25"/>
+          <text x="18.4" y="2.2">ЧПУ-раскрой</text><text class="sub" x="18.4" y="3">горизонтальный нож</text>
+        </g>
+        <g class="zone dens-w" data-step="4" tabindex="0" role="button" aria-label="Стопки белых листов, помещение 2">
+          <rect x="10.3" y="0.7" width="4.2" height="4.8" rx=".25"/>
+          <text x="12.4" y="2.8">Белые</text><text class="sub" x="12.4" y="3.6">листы</text>
+        </g>
+        <g class="zone dens-p" data-step="4" tabindex="0" role="button" aria-label="Стопки розовых листов, помещение 2">
+          <rect x="5.6" y="0.7" width="4.2" height="4.8" rx=".25"/>
+          <text x="7.7" y="2.8">Розовые</text><text class="sub" x="7.7" y="3.6">листы</text>
+        </g>
+        <g class="zone dens-b" data-step="4" tabindex="0" role="button" aria-label="Стопки синих листов, помещение 2">
+          <rect x="0.9" y="0.7" width="4.2" height="4.8" rx=".25"/>
+          <text x="3" y="2.8">Синие</text><text class="sub" x="3" y="3.6">листы</text>
+        </g>
+        <g class="zone" data-step="5" tabindex="0" role="button" aria-label="Упаковочный стол, помещение 1">
+          <rect x="0.7" y="10.2" width="3.4" height="2.9" rx=".25"/>
+          <text x="2.4" y="11.4">Упаковочный</text><text x="2.4" y="12.1">стол</text>
+        </g>
+        <g class="zone" data-step="6" tabindex="0" role="button" aria-label="Машина вакуумирования ВУМ-01, помещение 1">
+          <rect x="5.3" y="10.4" width="3.1" height="3.4" rx=".25"/>
+          <text x="6.85" y="11.7">ВУМ-01</text><text class="sub" x="6.85" y="12.5">вакуум и</text><text class="sub" x="6.85" y="13.15">скрутка</text>
+        </g>
+        <g class="zone" data-step="7" tabindex="0" role="button" aria-label="Склад готовых рулонов, помещение 1">
+          <rect x="0.7" y="18.2" width="7.7" height="5.1" rx=".25"/>
+          <text x="4.55" y="20.5">Склад рулонов</text><text class="sub" x="4.55" y="21.3">готовая продукция</text>
+        </g>
+
+        <!-- маршрут -->
+        <path class="leg" data-step="1" data-marker="1" d="M27.5 11.4 L27.5 6.9" marker-end="url(#arw)"/>
+        <path class="leg" data-step="2" data-marker="1" d="M27.5 6.9 L27.2 5.6 L26.3 4.6" marker-end="url(#arw)"/>
+        <path class="leg" data-step="3" data-marker="1" d="M26.3 4.6 L24.5 5.3 L19.5 5.3 L18.4 4.7" marker-end="url(#arw)"/>
+        <path class="leg" data-step="4" data-marker="1" d="M17.6 4.6 L15.6 6.1 L12.4 6.2 L7.7 6.2 L3 6.2" marker-end="url(#arw)"/>
+        <path class="leg" data-step="4" d="M12.4 6.2 L12.4 5.6" marker-end="url(#arw)"/>
+        <path class="leg" data-step="4" d="M7.7 6.2 L7.7 5.6" marker-end="url(#arw)"/>
+        <path class="leg" data-step="4" d="M3 6.2 L3 5.6" marker-end="url(#arw)"/>
+        <path class="leg" data-step="5" data-marker="1" d="M3 6.7 L4.4 7.9 L4.4 10.1 L2.9 11.1" marker-end="url(#arw)"/>
+        <path class="leg" data-step="6" data-marker="1" d="M4.2 12 L5.3 12.1" marker-end="url(#arw)"/>
+        <path class="leg" data-step="7" d="M6.9 13.9 L6.3 16.3 L4.9 18.1" marker-end="url(#arw)"/>
+        <path class="leg" data-step="7" data-marker="1" d="M6.4 18.1 L7.8 16.6 L9 15.75 L12.6 15.75" marker-end="url(#arw)"/>
+
+        <!-- персонал -->
+        <g class="person" transform="translate(23.7 6.9)"><circle cx="0" cy="-.52" r=".3"/><rect x="-.52" y="-.12" width="1.04" height=".92" rx=".36"/></g>
+        <g class="person" transform="translate(19.3 6.5)"><circle cx="0" cy="-.52" r=".3"/><rect x="-.52" y="-.12" width="1.04" height=".92" rx=".36"/></g>
+        <g class="person" transform="translate(4.75 11.8)"><circle cx="0" cy="-.52" r=".3"/><rect x="-.52" y="-.12" width="1.04" height=".92" rx=".36"/></g>
+        <g class="person" transform="translate(6.85 14.7)"><circle cx="0" cy="-.52" r=".3"/><rect x="-.52" y="-.12" width="1.04" height=".92" rx=".36"/></g>
+
+        <!-- номера помещений -->
+        <g class="room-badge"><circle cx="17" cy="7.1" r="1.05"/><text class="n" x="17" y="7.1" dominant-baseline="central">3</text><text class="a" x="17" y="8.5">135 м²</text></g>
+        <g class="room-badge"><circle cx="1.9" cy="7.1" r="1.05"/><text class="n" x="1.9" y="7.1" dominant-baseline="central">2</text><text class="a" x="1.9" y="8.5">135 м²</text></g>
+        <g class="room-badge"><circle cx="2" cy="15.6" r="1.05"/><text class="n" x="2" y="15.6" dominant-baseline="central">1</text><text class="a" x="2" y="17.3">135 м²</text></g>
+
+        <!-- размеры -->
+        <g class="dim">
+          <line x1="0" y1="-1.2" x2="15" y2="-1.2"/><line x1="0" y1="-1.5" x2="0" y2="-.9"/><line x1="15" y1="-1.5" x2="15" y2="-.9"/>
+          <text x="7.5" y="-1.6">15 м</text>
+          <line x1="15" y1="-1.2" x2="30" y2="-1.2"/><line x1="30" y1="-1.5" x2="30" y2="-.9"/>
+          <text x="22.5" y="-1.6">15 м</text>
+          <line x1="31.2" y1="0" x2="31.2" y2="9"/><line x1="30.9" y1="0" x2="31.5" y2="0"/><line x1="30.9" y1="9" x2="31.5" y2="9"/>
+          <text x="31.2" y="4.5" transform="rotate(-90 31.2 4.5)">9 м</text>
+          <line x1="-1.3" y1="9" x2="-1.3" y2="24"/><line x1="-1.6" y1="9" x2="-1" y2="9"/><line x1="-1.6" y1="24" x2="-1" y2="24"/>
+          <text x="-1.3" y="16.5" transform="rotate(-90 -1.3 16.5)">15 м</text>
+          <line x1="0" y1="25.2" x2="9" y2="25.2"/><line x1="0" y1="24.9" x2="0" y2="25.5"/><line x1="9" y1="24.9" x2="9" y2="25.5"/>
+          <text x="4.5" y="26.1">9 м</text>
+        </g>
+
+        <g class="scale">
+          <line x1="12" y1="25.4" x2="17" y2="25.4"/><line x1="12" y1="25.1" x2="12" y2="25.7"/><line x1="17" y1="25.1" x2="17" y2="25.7"/>
+          <text x="17.5" y="25.65">5 м</text>
+        </g>
+
+        <g id="marker"><circle r=".38"/></g>
+      </svg>
+    </div>
+    <p class="scroll-hint">План шире экрана — прокрутите его вбок.</p>
+    <div class="legend">
+      <span><i class="l-route"></i>маршрут материала</span>
+      <span><i class="l-gate"></i>ворота</span>
+      <span><i class="l-r3"></i>пом. 3 — сырьё и раскрой</span>
+      <span><i class="l-r2"></i>пом. 2 — буфер листов</span>
+      <span><i class="l-r1"></i>пом. 1 — упаковка и отгрузка</span>
+    </div>
+  </section>
+  </div>
+
+  <section class="steps" aria-label="Операции производства">
+    <p class="eyebrow">Семь операций</p>
+
+    <article class="step" data-step="1">
+      <button class="step-head" type="button" aria-expanded="true" aria-controls="b1">
+        <span class="step-n">1</span><span class="step-t"><b>Приёмка блоков</b><small>Помещение 3 · ворота 5</small></span><span class="chev" aria-hidden="true"></span>
+      </button>
+      <div class="step-body" id="b1">
+        <p>Фура подаёт пенополиуретан блоками в сжатом виде — так в кузов входит в несколько раз больше пены. Разгрузка идёт через ворота 5 прямо в приёмную зону помещения 3.</p>
+        <ul class="facts">
+          <li><span>Вход</span><b>Блоки ППУ, сжатые</b></li>
+          <li><span>Транспорт</span><b>Фура у ворот 5</b></li>
+          <li><span>Кто</span><b>Операторы помещения 3</b></li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="step" data-step="2">
+      <button class="step-head" type="button" aria-expanded="false" aria-controls="b2">
+        <span class="step-n">2</span><span class="step-t"><b>Расправление и хранение</b><small>Помещение 3 · склад блоков</small></span><span class="chev" aria-hidden="true"></span>
+      </button>
+      <div class="step-body" id="b2" hidden>
+        <p>С блока снимают упаковку, и он восстанавливает объём. Расправленные блоки держат штабелями друг на друге — цвет блока показывает марку пены, так что стопку видно насквозь, не разбирая.</p>
+        <ul class="facts">
+          <li><span>Операция</span><b>Распаковка, восстановление объёма</b></li>
+          <li><span>Хранение</span><b>Штабелями, до раскроя</b></li>
+        </ul>
+        <figure><img src="img/blocks.jpg" alt="Штабели цветных блоков пенополиуретана на складе" loading="lazy" width="1100" height="732"><figcaption>Расправленные блоки на складе: цвет — это марка пены.</figcaption></figure>
+      </div>
+    </article>
+
+    <article class="step" data-step="3">
+      <button class="step-head" type="button" aria-expanded="false" aria-controls="b3">
+        <span class="step-n">3</span><span class="step-t"><b>Раскрой на ЧПУ</b><small>Помещение 3 · горизонтальная резка</small></span><span class="chev" aria-hidden="true"></span>
+      </button>
+      <div class="step-body" id="b3" hidden>
+        <p>Блок подают на станок горизонтальной резки. Нож снимает с блока лист за листом — на выходе лист 2000×800×100 мм, заготовка одного матраса.</p>
+        <ul class="facts">
+          <li><span>Выход</span><b>Лист 2000×800×100 мм</b></li>
+          <li><span>Объём листа</span><b>0,16 м³</b></li>
+          <li><span>Кто</span><b>Оператор станка</b></li>
+        </ul>
+        <div class="mach">
+          <span><b>Станок горизонтальной резки ППУ с ЧПУ</b><span>контурная резка горизонтальным ножом</span></span>
+          <a href="https://cnc-cutmachines.com/1-8-foam-cutter-horizontal-blade-cnc-contour-cutting-machine.html" target="_blank" rel="noopener">Карточка станка ↗</a>
+        </div>
+        <form class="calc" id="calc" novalidate>
+          <p class="eyebrow">Сколько листов выйдет из блока</p>
+          <div class="calc-grid">
+            <label for="c-l">Длина блока, мм<input id="c-l" type="number" inputmode="numeric" value="2000" min="100" max="20000" step="10"></label>
+            <label for="c-w">Ширина блока, мм<input id="c-w" type="number" inputmode="numeric" value="1200" min="100" max="20000" step="10"></label>
+            <label for="c-h">Высота блока, мм<input id="c-h" type="number" inputmode="numeric" value="1000" min="50" max="20000" step="10"></label>
+            <label for="c-t">Толщина листа, мм<input id="c-t" type="number" inputmode="numeric" value="100" min="5" max="1000" step="5"></label>
+          </div>
+          <div class="calc-out">
+            <div><b id="o-sheets">—</b><span>листов 2000×800</span></div>
+            <div><b id="o-rolls">—</b><span>рулонов по 2 матраса</span></div>
+            <div><b id="o-util">—</b><span>объём блока в дело</span></div>
+          </div>
+          <p class="hint">Размеры блока по умолчанию — пример, подставьте свои. Считается простой раскрой в одну ориентацию: слои по высоте × целые листы в слое.</p>
+        </form>
+      </div>
+    </article>
+
+    <article class="step" data-step="4">
+      <button class="step-head" type="button" aria-expanded="false" aria-controls="b4">
+        <span class="step-n">4</span><span class="step-t"><b>Буфер листов по плотности</b><small>Помещение 2</small></span><span class="chev" aria-hidden="true"></span>
+      </button>
+      <div class="step-body" id="b4" hidden>
+        <p>Листы переезжают в помещение 2 и лежат стопками по плотности. У каждой плотности своя цветовая маркировка — белые, розовые, синие, — поэтому нужную марку берут, не разбирая стопку. Постоянных рабочих мест тут нет: помещение 2 работает как буфер между раскроем и упаковкой.</p>
+        <ul class="facts">
+          <li><span>Хранится</span><b>Листы 2000×800×100 мм</b></li>
+          <li><span>Маркировка</span><b>Белый · розовый · синий</b></li>
+        </ul>
+        <figure><img src="img/sheets.jpg" alt="Склад листов пенополиуретана в упаковке, стопками до потолка" loading="lazy" width="1100" height="619"><figcaption>Помещение 2: стопки листов и упакованные заготовки.</figcaption></figure>
+      </div>
+    </article>
+
+    <article class="step" data-step="5">
+      <button class="step-head" type="button" aria-expanded="false" aria-controls="b5">
+        <span class="step-n">5</span><span class="step-t"><b>Чехол и рукав</b><small>Помещение 1 · упаковочный стол</small></span><span class="chev" aria-hidden="true"></span>
+      </button>
+      <div class="step-body" id="b5" hidden>
+        <p>Упаковщик приносит листы нужной плотности из помещения 2. На столе на лист надевают чехол — это уже готовый матрас. Два матраса укладывают в полиэтиленовый рукав.</p>
+        <ul class="facts">
+          <li><span>Вход</span><b>Лист ППУ + чехол</b></li>
+          <li><span>Выход</span><b>2 матраса в рукаве</b></li>
+          <li><span>Кто</span><b>Упаковщик помещения 1</b></li>
+        </ul>
+        <figure><img src="img/mixed.jpg" alt="Готовые матрасы в чехлах, листы ППУ и рулоны в помещении упаковки" loading="lazy" width="1100" height="619"><figcaption>Помещение 1: листы, матрасы в чехлах и рулоны рядом.</figcaption></figure>
+      </div>
+    </article>
+
+    <article class="step" data-step="6">
+      <button class="step-head" type="button" aria-expanded="false" aria-controls="b6">
+        <span class="step-n">6</span><span class="step-t"><b>Вакуумирование и скрутка</b><small>Помещение 1 · ВУМ-01</small></span><span class="chev" aria-hidden="true"></span>
+      </button>
+      <div class="step-body" id="b6" hidden>
+        <p>Рукав с двумя матрасами идёт в машину ВУМ-01: воздух откачивается, пена сжимается, матрасы скручиваются в рулон. В рулоне партия занимает в разы меньше места — и на складе, и в фуре.</p>
+        <ul class="facts">
+          <li><span>Вход</span><b>Рукав с 2 матрасами</b></li>
+          <li><span>Выход</span><b>1 вакуумный рулон</b></li>
+        </ul>
+        <div class="mach">
+          <span><b>ВУМ-01</b><span>вакуумирование и упаковка матрасов</span></span>
+          <a href="https://www.stanki.ru/catalog/upakovka/stanok_dlya_vakuumirovaniya_i_upakovki_matrasov_vum_01/" target="_blank" rel="noopener">Карточка машины ↗</a>
+        </div>
+      </div>
+    </article>
+
+    <article class="step" data-step="7">
+      <button class="step-head" type="button" aria-expanded="false" aria-controls="b7">
+        <span class="step-n">7</span><span class="step-t"><b>Склад рулонов и отгрузка</b><small>Помещение 1 · ворота 2</small></span><span class="chev" aria-hidden="true"></span>
+      </button>
+      <div class="step-body" id="b7" hidden>
+        <p>Рулоны хранятся здесь же, в помещении 1, рядом с воротами. Отгрузка — через ворота 2 прямо в фуру; подача сырья и отгрузка готового разведены по разным сторонам здания и не пересекаются.</p>
+        <ul class="facts">
+          <li><span>Хранится</span><b>Вакуумные рулоны</b></li>
+          <li><span>Отгрузка</span><b>Фура у ворот 2</b></li>
+        </ul>
+        <figure><img src="img/rolls.jpg" alt="Штабель вакуумных рулонов с матрасами в бирюзовой упаковке" loading="lazy" width="1100" height="619"><figcaption>Готовые рулоны ждут отгрузки в помещении 1.</figcaption></figure>
+      </div>
+    </article>
+  </section>
+</main>
+
+<div class="below">
+  <section class="card">
+    <h2>Кто где стоит</h2>
+    <ul class="crew">
+      <li><span class="dots"><i></i><i></i></span><span><b>Помещение 3 — 2 человека.</b> Принимают и расправляют блоки, работают на ЧПУ-станке, передают листы в помещение 2.</span></li>
+      <li><span class="dots"><i></i><i></i></span><span><b>Помещение 1 — 2 человека.</b> Приносят листы, надевают чехлы, пакуют в рукав, вакуумируют и отгружают.</span></li>
+      <li><span class="dots empty"><i></i><i></i></span><span><b>Помещение 2 — постоянных мест нет.</b> Буферный склад листов, через него проходят обе бригады.</span></li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <h2>Маркировка плотности</h2>
+    <p>Цвет листа в помещении 2 говорит о плотности пены — марку видно по торцу стопки.</p>
+    <ul class="dens">
+      <li><i class="w"></i><span>Белые листы</span></li>
+      <li><i class="p"></i><span>Розовые листы</span></li>
+      <li><i class="b"></i><span>Синие листы</span></li>
+    </ul>
+  </section>
+
+  <section class="card wide">
+    <h2>Что принято допущением</h2>
+    <ul class="assume">
+      <li>На эскизе размеров нет. Площадь 135 м² разложена как 15 × 9 м для помещений 2 и 3 и 9 × 15 м для помещения 1 — пропорции плана отсюда. Если реальные габариты другие, их надо поправить.</li>
+      <li>Граница между помещениями 2 и 3 показана пунктиром, как на эскизе: это проём, а не глухая стена.</li>
+      <li>Дверь из помещения 2 в помещение 1 и расстановка оборудования внутри помещений — предположение по логике потока, а не замер.</li>
+      <li>Ворота 1, 3 и 4 в потоке не участвуют: сырьё заезжает в ворота 5, готовое уезжает через ворота 2.</li>
+      <li>Данных о плотностях, времени цикла и сменной выработке не было — в карте их нет.</li>
+    </ul>
+  </section>
+</div>
+
+<footer>Схема построена по эскизу помещений и фотографиям производства. Нажатие на участок плана открывает операцию; «Проиграть цикл» прогоняет все семь операций подряд.</footer>
+</div>
+
+<script>
+(function(){
+  var plan = document.getElementById('plan');
+  var steps = Array.prototype.slice.call(document.querySelectorAll('.step'));
+  var marker = document.getElementById('marker');
+  var playBtn = document.getElementById('play');
+  var playLabel = document.getElementById('play-label');
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var active = 1, rafId = null, timer = null, playing = false;
+
+  function markerPath(n){
+    return plan.querySelector('.leg[data-step="' + n + '"][data-marker]');
+  }
+
+  function runMarker(){
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    var path = markerPath(active);
+    if (!path || typeof path.getTotalLength !== 'function'){ marker.setAttribute('opacity', '0'); return; }
+    var len = path.getTotalLength();
+    if (!len){ marker.setAttribute('opacity', '0'); return; }
+    marker.setAttribute('opacity', '1');
+    var place = function(k){
+      var p = path.getPointAtLength(k * len);
+      marker.setAttribute('transform', 'translate(' + p.x + ' ' + p.y + ')');
+    };
+    if (reduce){ place(1); return; }
+    var dur = Math.max(1200, len * 380);
+    var t0 = null;
+    var tick = function(t){
+      if (t0 === null) t0 = t;
+      place(((t - t0) % dur) / dur);
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function select(n, bring){
+    active = n;
+    steps.forEach(function(s){
+      var on = +s.dataset.step === n;
+      s.classList.toggle('is-open', on);
+      s.querySelector('.step-head').setAttribute('aria-expanded', on ? 'true' : 'false');
+      s.querySelector('.step-body').hidden = !on;
+      if (on && bring) s.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
+    });
+    Array.prototype.forEach.call(plan.querySelectorAll('[data-step]'), function(el){
+      el.classList.toggle('is-on', +el.dataset.step === n);
+    });
+    runMarker();
+  }
+
+  steps.forEach(function(s){
+    s.querySelector('.step-head').addEventListener('click', function(){
+      stop();
+      select(+s.dataset.step, false);
+    });
+  });
+
+  Array.prototype.forEach.call(plan.querySelectorAll('.zone'), function(z){
+    var go = function(){ stop(); select(+z.dataset.step, true); };
+    z.addEventListener('click', go);
+    z.addEventListener('keydown', function(e){
+      if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); go(); }
+    });
+  });
+
+  function stop(){
+    if (!playing) return;
+    playing = false;
+    clearInterval(timer);
+    playBtn.classList.remove('is-playing');
+    playLabel.textContent = 'Проиграть цикл';
+  }
+  playBtn.addEventListener('click', function(){
+    if (playing){ stop(); return; }
+    playing = true;
+    playBtn.classList.add('is-playing');
+    playLabel.textContent = 'Пауза';
+    select(active % steps.length + 1, true);
+    timer = setInterval(function(){ select(active % steps.length + 1, true); }, 4200);
+  });
+
+  function layer(id, cls){
+    var box = document.getElementById(id);
+    var apply = function(){ plan.classList.toggle(cls, !box.checked); };
+    box.addEventListener('change', apply);
+    apply();
+  }
+  layer('t-route', 'no-route');
+  layer('t-people', 'no-people');
+  layer('t-dims', 'no-dims');
+
+  // Калькулятор раскроя блока на листы 2000×800
+  var SHEET_L = 2000, SHEET_W = 800;
+  var fields = ['c-l', 'c-w', 'c-h', 'c-t'].map(function(id){ return document.getElementById(id); });
+  var outSheets = document.getElementById('o-sheets');
+  var outRolls = document.getElementById('o-rolls');
+  var outUtil = document.getElementById('o-util');
+
+  function calc(){
+    var L = parseFloat(fields[0].value), W = parseFloat(fields[1].value);
+    var H = parseFloat(fields[2].value), T = parseFloat(fields[3].value);
+    var ok = [L, W, H, T].every(function(v){ return isFinite(v) && v > 0; });
+    if (!ok){ outSheets.textContent = '—'; outRolls.textContent = '—'; outUtil.textContent = '—'; return; }
+    var layers = Math.floor(H / T);
+    var perLayer = Math.max(
+      Math.floor(L / SHEET_L) * Math.floor(W / SHEET_W),
+      Math.floor(L / SHEET_W) * Math.floor(W / SHEET_L)
+    );
+    var sheets = layers * perLayer;
+    var blockVol = (L / 1000) * (W / 1000) * (H / 1000);
+    var usedVol = sheets * (SHEET_L / 1000) * (SHEET_W / 1000) * (T / 1000);
+    var util = blockVol > 0 ? Math.round(usedVol / blockVol * 100) : 0;
+    outSheets.textContent = sheets;
+    outRolls.textContent = Math.floor(sheets / 2);
+    outUtil.textContent = util + '%';
+  }
+  fields.forEach(function(f){ f.addEventListener('input', calc); });
+  calc();
+
+  select(1, false);
+})();
+</script>
