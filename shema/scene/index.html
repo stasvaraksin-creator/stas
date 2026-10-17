@@ -374,9 +374,20 @@ body{
 
   /* ================= помещение 3: штабель, приёмка, ЧПУ ================= */
   var BW = 2.0, BH = 1.0, BD = 0.85;
-  for (var i3 = 0; i3 < 12; i3++){
-    var col3 = i3 % 2, row3 = Math.floor(i3 / 2) % 2, lvl3 = Math.floor(i3 / 4);
-    box(BW, BH, BD, FOAM[i3], 23.6 + col3 * 2.1, 0.52 + lvl3 * 1.02, 1.5 + row3 * 0.95, { rough:0.97 });
+  // стена блоков: три ряда в глубину, четыре по фронту, три яруса
+  var blockN = 0;
+  for (var lv = 0; lv < 3; lv++){
+    for (var cx3 = 0; cx3 < 3; cx3++){
+      for (var rz3 = 0; rz3 < 4; rz3++){
+        var jit = Math.sin((lv * 17 + cx3 * 5 + rz3 * 11) * 1.7);
+        box(BW, BH, BD, FOAM[(cx3 * 7 + rz3 * 5 + lv * 3) % FOAM.length],
+            22.5 + cx3 * 2.15 + jit * 0.06,
+            0.52 + lv * 1.02,
+            1.0 + rz3 * 0.95 + jit * 0.05,
+            { rough:0.97, ry: jit * 0.02 });
+        blockN++;
+      }
+    }
   }
   box(2.8, 0.14, 1.8, COL.steel, 27.2, 0.07, 7.1, { rough:0.9 });         // поддон приёмки
 
@@ -473,7 +484,7 @@ body{
   plate(cnc, 'ЧПУ · ГОРИЗОНТАЛЬНАЯ РЕЗКА ППУ', 1.9, 0.26, -1.4, 0.72, 1.42, 0);
   andon(cnc, -2.78, 2.78, -1.48);
 
-  var feedBlock = box(BW, BH, BD, FOAM[3], 22.8, 0.52, 3.9, { rough:0.97 });
+  var feedBlock = box(BW, BH, BD, FOAM[3], 22.2, 0.52, 5.2, { rough:0.97 });
   var cutSheet = box(BW, 0.1, BD, SHEET[0], 18.4, 1.95, 2.7, { rough:0.95 });
 
   /* ================= помещение 2: буфер листов ================= */
@@ -604,6 +615,7 @@ body{
 
   // Рулоны как на фото: мятный матрас в прозрачной плёнке, на торце видна
   // спираль намотки, на части рулонов — жёлтая наклейка.
+  function rnd(i){ var v = Math.sin(i * 127.1) * 43758.5453; return v - Math.floor(v); }
   var ROLL_R = 0.34, ROLL_L = 0.95;
   var rollCapTex = (function(){
     var cv = document.createElement('canvas'); cv.width = cv.height = 256;
@@ -623,17 +635,38 @@ body{
   })();
   var rollSideMat = new THREE.MeshStandardMaterial({ color: COL.roll, roughness:0.34, metalness:0.06 });
   var rollCapMat = new THREE.MeshStandardMaterial({ map: rollCapTex, roughness:0.45 });
-  var ROLL_GEO = new THREE.CylinderGeometry(ROLL_R, ROLL_R, ROLL_L, 20);
+  // геометрия рулона мятая: волна по окружности, провис по длине, пять вариантов
+  function rollGeo(seed){
+    var g = new THREE.CylinderGeometry(ROLL_R, ROLL_R, ROLL_L, 22, 5);
+    var pos = g.attributes.position, v = new THREE.Vector3();
+    for (var i = 0; i < pos.count; i++){
+      v.fromBufferAttribute(pos, i);
+      var rad = Math.sqrt(v.x * v.x + v.z * v.z);
+      if (rad > 0.001){
+        var ang = Math.atan2(v.z, v.x);
+        var f = 1 + Math.sin(ang * 3 + seed * 1.7) * 0.032
+                  + Math.sin(ang * 5 - seed * 2.3) * 0.018
+                  + Math.sin(v.y * 7.5 + seed) * 0.014;
+        v.x *= f; v.z *= f;
+      }
+      v.x += Math.sin((v.y / ROLL_L + 0.5) * PI) * 0.022 * Math.sin(seed * 3.1);
+      pos.setXYZ(i, v.x, v.y, v.z);
+    }
+    g.computeVertexNormals();
+    return g;
+  }
+  var ROLL_GEOS = [rollGeo(1.0), rollGeo(2.3), rollGeo(3.7), rollGeo(5.1), rollGeo(6.8)];
   var rollN = 0;
-  function rnd(i){ var v = Math.sin(i * 127.1) * 43758.5453; return v - Math.floor(v); }
   var rollSeed = 0;
   function rollMesh(x, y, z, label){
-    var m = new THREE.Mesh(ROLL_GEO, [rollSideMat, rollCapMat, rollCapMat]);
+    var sd = ++rollSeed;
+    var m = new THREE.Mesh(ROLL_GEOS[sd % ROLL_GEOS.length], [rollSideMat, rollCapMat, rollCapMat]);
     m.rotation.z = PI / 2;
-    if (label !== false){                              // лёгкий разнобой, чтобы штабель не был строем
-      var sd = ++rollSeed;
-      m.rotation.y = (rnd(sd) - 0.5) * 0.22;
+    if (label !== false){                              // разнобой: штабель, а не строй
+      m.rotation.y = (rnd(sd) - 0.5) * 0.24;
+      m.rotation.x = (rnd(sd + 5) - 0.5) * 0.05;
       x += (rnd(sd + 11) - 0.5) * 0.1; z += (rnd(sd + 23) - 0.5) * 0.12;
+      m.scale.set(0.92 + rnd(sd + 3) * 0.08, 0.96 + rnd(sd + 7) * 0.07, 1.0 + rnd(sd + 13) * 0.05);
     }
     m.position.set(x, y, z);
     m.castShadow = true; m.receiveShadow = true;
@@ -665,47 +698,136 @@ body{
   }
 
   /* ================= фуры ================= */
+  // Фура: рама, фургон с рёбрами борта, кабина с остеклением, зеркалами и
+  // выхлопной трубой, бак, брызговики, распашные задние двери.
+  // Колёса на ступицах: катятся от пройденного пути, передние ещё и
+  // доворачиваются при манёвре.
+  var WHEEL_R = 0.5;
+  function makeWheel(parent, x, z, steerable){
+    var steer = steerable ? group(x, WHEEL_R, z, parent) : null;
+    var hub = group(steerable ? 0 : x, steerable ? 0 : WHEEL_R, steerable ? 0 : z, steer || parent);
+    cyl(WHEEL_R, 0.3, COL.tyre, 0, 0, 0, { parent:hub, rz:PI / 2, seg:18, rough:0.95 });
+    cyl(WHEEL_R * 0.62, 0.32, 0xB9BFC0, 0, 0, 0, { parent:hub, rz:PI / 2, seg:14, rough:0.4, metal:0.6, cast:false });
+    cyl(WHEEL_R * 0.22, 0.34, 0x7E868A, 0, 0, 0, { parent:hub, rz:PI / 2, seg:10, rough:0.4, metal:0.6, cast:false });
+    box(0.1, WHEEL_R * 1.1, 0.07, 0x9AA1A3, 0, 0, 0, { parent:hub, rough:0.4, metal:0.5, cast:false });
+    return { hub: hub, steer: steer };
+  }
   function makeTruck(){
     var g = group(0, 0, 0);
-    box(2.55, 2.9, 7.4, COL.truck, 0, 2.5, -0.6, { parent:g, rough:0.5 });
-    box(2.6, 0.2, 7.5, COL.steel, 0, 1.0, -0.6, { parent:g, rough:0.6, metal:0.3 });
-    box(2.58, 0.12, 7.42, COL.blue, 0, 1.75, -0.6, { parent:g, rough:0.5, cast:false });
-    box(2.45, 2.3, 2.2, COL.cab, 0, 1.75, 4.2, { parent:g, rough:0.45, metal:0.2 });
-    box(2.3, 0.8, 0.12, COL.glass, 0, 2.55, 5.3, { parent:g, rough:0.2, metal:0.5 });
-    box(2.5, 0.5, 0.5, COL.steelDark, 0, 0.8, 5.35, { parent:g, rough:0.6 });
-    var wheels = [], wz = [4.1, -2.3, -3.6];
-    for (var i = 0; i < wz.length; i++){
-      wheels.push(cyl(0.52, 0.32, COL.tyre, 1.25, 0.52, wz[i], { parent:g, rz:PI / 2, seg:14, rough:0.9 }));
-      wheels.push(cyl(0.52, 0.32, COL.tyre, -1.25, 0.52, wz[i], { parent:g, rz:PI / 2, seg:14, rough:0.9 }));
+    var FY = 1.02;                                            // уровень рамы
+    box(0.95, 0.2, 9.0, COL.steelDark, 0, FY - 0.22, 0.1, { parent:g, rough:0.75 });        // рама
+    // фургон
+    box(2.52, 2.72, 6.9, COL.truck, 0, FY + 1.46, -0.85, { parent:g, rough:0.5 });
+    box(2.56, 0.1, 6.94, 0xBFC6C4, 0, FY + 0.12, -0.85, { parent:g, rough:0.6, cast:false });
+    box(2.56, 0.22, 6.94, COL.blue, 0, FY + 0.62, -0.85, { parent:g, rough:0.5, cast:false });
+    for (var rb = -3; rb <= 3; rb++){
+      box(2.57, 2.5, 0.05, 0xDFE4E2, 0, FY + 1.5, -0.85 + rb * 0.98, { parent:g, rough:0.65, cast:false });
     }
-    var doorPivot = group(0, 3.95, -4.3, g);
-    box(2.5, 2.85, 0.1, COL.door, 0, -1.42, 0, { parent:doorPivot, rough:0.6 });
-    g.userData = { wheels: wheels, door: doorPivot };
+    box(2.3, 0.42, 6.4, 0xC6CBC9, 0, FY - 0.32, -0.9, { parent:g, rough:0.6, cast:false });  // боковая юбка
+    // кабина
+    var cab = group(0, 0, 3.9, g);
+    box(2.42, 2.26, 2.3, COL.cab, 0, FY + 1.2, 0, { parent:cab, rough:0.45, metal:0.25 });
+    box(2.3, 0.9, 0.1, COL.glass, 0, FY + 1.76, 1.17, { parent:cab, rough:0.12, metal:0.6, cast:false });
+    box(0.1, 0.62, 1.0, COL.glass, 1.22, FY + 1.7, 0.1, { parent:cab, rough:0.12, metal:0.6, cast:false });
+    box(0.1, 0.62, 1.0, COL.glass, -1.22, FY + 1.7, 0.1, { parent:cab, rough:0.12, metal:0.6, cast:false });
+    box(2.34, 0.5, 0.18, 0x3C4850, 0, FY + 0.78, 1.2, { parent:cab, rough:0.5, metal:0.3, cast:false });  // решётка
+    box(2.46, 0.34, 0.3, COL.steelDark, 0, FY + 0.3, 1.24, { parent:cab, rough:0.6 });                    // бампер
+    box(0.36, 0.17, 0.12, 0xF4EFD8, 0.88, FY + 0.56, 1.24, { parent:cab, rough:0.3, cast:false });
+    box(0.36, 0.17, 0.12, 0xF4EFD8, -0.88, FY + 0.56, 1.24, { parent:cab, rough:0.3, cast:false });
+    box(0.06, 0.4, 0.12, COL.steelDark, 1.34, FY + 1.9, 0.85, { parent:cab, rough:0.5, cast:false });     // зеркала
+    box(0.06, 0.4, 0.12, COL.steelDark, -1.34, FY + 1.9, 0.85, { parent:cab, rough:0.5, cast:false });
+    box(2.2, 0.3, 0.5, 0xDDE2E0, 0, FY + 2.5, -0.45, { parent:cab, rough:0.5, cast:false });              // дефлектор
+    cyl(0.075, 1.5, COL.steel, -1.26, FY + 1.3, -0.95, { parent:cab, seg:10, rough:0.35, metal:0.7 });    // труба
+    cyl(0.32, 1.0, COL.steel, 1.2, FY - 0.3, 1.0, { parent:g, rz:PI / 2, seg:14, rough:0.35, metal:0.65 }); // бак
+    // колёса: передняя ось поворотная, задняя — двускатная
+    var wheels = [], steers = [];
+    var wf = makeWheel(g, 1.15, 3.75, true); wheels.push(wf.hub); steers.push(wf.steer);
+    var wf2 = makeWheel(g, -1.15, 3.75, true); wheels.push(wf2.hub); steers.push(wf2.steer);
+    var rearZ = [-1.9, -3.1], rearX = [1.0, 1.36];
+    for (var ax = 0; ax < rearZ.length; ax++){
+      for (var dw = 0; dw < rearX.length; dw++){
+        wheels.push(makeWheel(g, rearX[dw], rearZ[ax], false).hub);
+        wheels.push(makeWheel(g, -rearX[dw], rearZ[ax], false).hub);
+      }
+    }
+    box(0.5, 0.5, 0.06, 0x2A2F31, 1.2, 0.3, -3.7, { parent:g, rough:0.9, cast:false });   // брызговики
+    box(0.5, 0.5, 0.06, 0x2A2F31, -1.2, 0.3, -3.7, { parent:g, rough:0.9, cast:false });
+    // задние распашные двери
+    box(2.56, 0.26, 0.3, COL.steelDark, 0, FY - 0.18, -4.35, { parent:g, rough:0.6 });     // отбойник
+    box(0.16, 0.16, 0.06, 0xC94B45, 1.1, FY + 0.2, -4.36, { parent:g, rough:0.4, cast:false });
+    box(0.16, 0.16, 0.06, 0xC94B45, -1.1, FY + 0.2, -4.36, { parent:g, rough:0.4, cast:false });
+    var doorL = group(1.24, FY + 1.46, -4.3, g), doorR = group(-1.24, FY + 1.46, -4.3, g);
+    box(1.2, 2.6, 0.09, COL.door, -0.6, 0, 0, { parent:doorL, rough:0.6 });
+    box(1.2, 2.6, 0.09, COL.door, 0.6, 0, 0, { parent:doorR, rough:0.6 });
+    box(0.07, 2.4, 0.11, 0x9AA1A3, -0.25, 0, 0.06, { parent:doorL, rough:0.4, metal:0.6, cast:false });
+    box(0.07, 2.4, 0.11, 0x9AA1A3, 0.25, 0, 0.06, { parent:doorR, rough:0.4, metal:0.6, cast:false });
+    g.userData = { wheels: wheels, steers: steers, doorL: doorL, doorR: doorR, px: 0, pz: 0, pry: 0, steer: 0 };
     return g;
   }
   var truckIn = makeTruck(), truckOut = makeTruck();
+  function truckDoors(tr, k){
+    tr.userData.doorL.rotation.y = -k * 2.3;
+    tr.userData.doorR.rotation.y = k * 2.3;
+  }
+  function driveTruck(tr){                                   // качение колёс от пройденного пути
+    var u = tr.userData;
+    var dx = tr.position.x - u.px, dz = tr.position.z - u.pz;
+    if (dx * dx + dz * dz < 9){
+      var fwd = dx * Math.sin(tr.rotation.y) + dz * Math.cos(tr.rotation.y);
+      var a = fwd / WHEEL_R;
+      for (var i = 0; i < u.wheels.length; i++) u.wheels[i].rotation.x += a;
+      var dry = tr.rotation.y - u.pry;
+      var want = Math.max(-0.5, Math.min(0.5, dry * 9));
+      u.steer += (want - u.steer) * 0.25;
+      for (var st = 0; st < u.steers.length; st++) u.steers[st].rotation.y = u.steer;
+    }
+    u.px = tr.position.x; u.pz = tr.position.z; u.pry = tr.rotation.y;
+  }
 
   /* ================= рабочие ================= */
+  function taper(parent, rTop, rBot, h, color, y){
+    var m = new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBot, h, 10), mat(color, 0.88));
+    m.position.y = y; m.castShadow = true; m.receiveShadow = true; parent.add(m);
+    return m;
+  }
+  // Фигура с суставами: таз, корпус, шея, голова в каске; руки плечо-локоть-кисть,
+  // ноги бедро-колено-стопа. Конечности конические, поэтому читаются как руки-ноги.
   function makeWorker(){
     var g = group(0, 0, 0);
     var body = group(0, 0, 0, g);
-    box(0.5, 0.6, 0.28, COL.vest, 0, 1.27, 0, { parent:body, rough:0.8 });
-    box(0.52, 0.16, 0.3, COL.steelDark, 0, 1.02, 0, { parent:body, rough:0.8, cast:false });
-    var head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 14, 12), mat(COL.skin, 0.9));
-    head.position.set(0, 1.68, 0); head.castShadow = true; body.add(head);
-    cyl(0.145, 0.07, 0xF4F6F5, 0, 1.78, 0, { parent:body, seg:12, rough:0.7 });
-    function limb(w, h, d, color, x, y, z){
-      var p = group(x, y, z, body);
-      box(w, h, d, color, 0, -h / 2, 0, { parent:p, rough:0.85 });
-      return p;
+    var hip = group(0, 0.9, 0, body);
+    box(0.33, 0.22, 0.23, COL.pants, 0, 0.04, 0, { parent:hip, rough:0.88 });
+    var chest = group(0, 0.14, 0, hip);
+    box(0.35, 0.42, 0.23, 0x56616C, 0, 0.21, 0, { parent:chest, rough:0.88 });              // рубашка
+    box(0.4, 0.33, 0.26, COL.vest, 0, 0.23, 0, { parent:chest, rough:0.82 });               // жилет
+    box(0.41, 0.045, 0.27, 0xF2F4F3, 0, 0.3, 0, { parent:chest, rough:0.6, cast:false });   // светополосы
+    box(0.42, 0.045, 0.275, 0xF2F4F3, 0, 0.16, 0, { parent:chest, rough:0.6, cast:false });
+    box(0.44, 0.1, 0.19, COL.vest, 0, 0.39, 0, { parent:chest, rough:0.82, cast:false });   // плечи
+    taper(chest, 0.048, 0.058, 0.1, COL.skin, 0.47);                                        // шея
+    var head = new THREE.Mesh(new THREE.SphereGeometry(0.105, 16, 12), mat(COL.skin, 0.9));
+    head.scale.set(1, 1.12, 1.02); head.position.set(0, 0.585, 0);
+    head.castShadow = true; chest.add(head);
+    var dome = new THREE.Mesh(new THREE.SphereGeometry(0.113, 16, 8, 0, PI * 2, 0, PI / 2), mat(0xF2F4F3, 0.55));
+    dome.position.set(0, 0.6, 0); dome.castShadow = true; chest.add(dome);
+    box(0.19, 0.022, 0.11, 0xF2F4F3, 0, 0.598, 0.1, { parent:chest, rough:0.55, cast:false });  // козырёк каски
+    function arm(side){
+      var sh = group(side * 0.205, 0.33, 0, chest);
+      taper(sh, 0.052, 0.044, 0.27, COL.vest, -0.135);
+      var el = group(0, -0.27, 0, sh);
+      taper(el, 0.044, 0.039, 0.25, 0x56616C, -0.125);
+      box(0.068, 0.09, 0.062, COL.skin, 0, -0.285, 0, { parent:el, rough:0.9 });
+      return { sh: sh, el: el };
     }
-    g.userData = {
-      body: body,
-      legL: limb(0.2, 0.92, 0.22, COL.pants, 0.14, 0.95, 0),
-      legR: limb(0.2, 0.92, 0.22, COL.pants, -0.14, 0.95, 0),
-      armL: limb(0.14, 0.58, 0.16, COL.vest, 0.31, 1.5, 0),
-      armR: limb(0.14, 0.58, 0.16, COL.vest, -0.31, 1.5, 0)
-    };
+    function leg(side){
+      var hp = group(side * 0.095, 0.02, 0, hip);
+      taper(hp, 0.076, 0.062, 0.42, COL.pants, -0.21);
+      var kn = group(0, -0.42, 0, hp);
+      taper(kn, 0.062, 0.05, 0.42, COL.pants, -0.21);
+      box(0.1, 0.07, 0.25, 0x2A2E33, 0, -0.45, 0.05, { parent:kn, rough:0.9 });
+      return { hp: hp, kn: kn };
+    }
+    g.userData = { body:body, hip:hip, chest:chest,
+                   armL:arm(1), armR:arm(-1), legL:leg(1), legR:leg(-1) };
     return g;
   }
   var W = [makeWorker(), makeWorker(), makeWorker(), makeWorker()];
@@ -713,18 +835,38 @@ body{
   function poseWorker(w, x, z, ang, moving, t, carry){
     var u = w.userData;
     w.position.x = x; w.position.z = z; w.rotation.y = ang;
-    var sw = Math.sin(t * 7.5);
+    var ph = t * 6.2, sn = Math.sin(ph), cs = Math.cos(ph);
     if (moving){
-      u.legL.rotation.x = sw * 0.75; u.legR.rotation.x = -sw * 0.75;
-      u.body.position.y = Math.abs(Math.cos(t * 7.5)) * 0.045;
+      u.legL.hp.rotation.x = sn * 0.6;
+      u.legR.hp.rotation.x = -sn * 0.6;
+      u.legL.kn.rotation.x = -Math.max(0, Math.sin(ph + 1.2)) * 0.95;
+      u.legR.kn.rotation.x = -Math.max(0, Math.sin(ph + 1.2 + PI)) * 0.95;
+      u.body.position.y = Math.abs(cs) * 0.03;
+      u.hip.rotation.y = sn * 0.08;
+      u.chest.rotation.y = -sn * 0.1;
+      u.chest.rotation.x = 0.06;
     } else {
-      u.legL.rotation.x *= 0.85; u.legR.rotation.x *= 0.85; u.body.position.y *= 0.85;
+      u.legL.hp.rotation.x *= 0.86; u.legR.hp.rotation.x *= 0.86;
+      u.legL.kn.rotation.x *= 0.86; u.legR.kn.rotation.x *= 0.86;
+      u.body.position.y *= 0.86; u.hip.rotation.y *= 0.86;
+      u.chest.rotation.y = Math.sin(t * 1.3) * 0.06;
+      u.chest.rotation.x = 0.04 + Math.sin(t * 1.7) * 0.03;
     }
-    if (carry){ u.armL.rotation.x = -1.35; u.armR.rotation.x = -1.35; }
-    else if (moving){ u.armL.rotation.x = -sw * 0.6; u.armR.rotation.x = sw * 0.6; }
-    else {
-      u.armL.rotation.x = Math.sin(t * 2.6) * 0.45 - 0.2;
-      u.armR.rotation.x = Math.sin(t * 2.6 + 1.1) * 0.45 - 0.2;
+    if (carry){                                        // несёт лист перед собой
+      u.armL.sh.rotation.x = -1.25; u.armR.sh.rotation.x = -1.25;
+      u.armL.el.rotation.x = -0.45; u.armR.el.rotation.x = -0.45;
+      u.armL.sh.rotation.z = -0.12; u.armR.sh.rotation.z = 0.12;
+      u.chest.rotation.x = -0.05;
+    } else if (moving){                                // махи руками в противофазе ногам
+      u.armL.sh.rotation.x = -sn * 0.48; u.armR.sh.rotation.x = sn * 0.48;
+      u.armL.el.rotation.x = -0.35 - Math.max(0, -sn) * 0.45;
+      u.armR.el.rotation.x = -0.35 - Math.max(0, sn) * 0.45;
+      u.armL.sh.rotation.z = -0.07; u.armR.sh.rotation.z = 0.07;
+    } else {                                           // работает руками на месте
+      var h1 = Math.sin(t * 2.1), h2 = Math.sin(t * 2.1 + 1.0);
+      u.armL.sh.rotation.x = -0.55 + h1 * 0.3; u.armR.sh.rotation.x = -0.5 + h2 * 0.3;
+      u.armL.el.rotation.x = -0.9 - h2 * 0.35; u.armR.el.rotation.x = -0.95 - h1 * 0.3;
+      u.armL.sh.rotation.z = -0.17; u.armR.sh.rotation.z = 0.17;
     }
   }
 
@@ -845,37 +987,37 @@ body{
 
   /* ================= анимация ================= */
   function animateTrucks(t){
+    // фура с сырьём: подъезд с востока, разворот, задним ходом в ворота 5
     var vis = t < 27.6;
     truckIn.visible = vis;
     if (vis){
-      var x = 27.5, z = 14.6, ry = -PI / 2, mv = 0;
-      if (t < 3.5){ x = lerp(37, 27.5, ease(seg(t, 0, 3.5))); mv = 1; }
+      var x = 27.5, z = 16.8, ry = -PI / 2;
+      if (t < 3.5){ x = lerp(37, 27.5, ease(seg(t, 0, 3.5))); }
       else if (t < 5.5){ ry = lerp(-PI / 2, 0, ease(seg(t, 3.5, 5.5))); }
-      else if (t < 8.2){ ry = 0; z = lerp(14.6, 11.6, ease(seg(t, 5.5, 8.2))); mv = -1; }
-      else if (t < 18.5){ ry = 0; z = 11.6; }
-      else if (t < 21){ ry = 0; z = lerp(11.6, 15.6, ease(seg(t, 18.5, 21))); mv = 1; }
-      else if (t < 22.6){ ry = lerp(0, PI / 2, ease(seg(t, 21, 22.6))); z = 15.6; }
-      else { ry = PI / 2; z = 15.6; x = lerp(27.5, 42, easeIn(seg(t, 22.6, 27.6))); mv = 1; }
+      else if (t < 8.2){ ry = 0; z = lerp(16.8, 13.4, ease(seg(t, 5.5, 8.2))); }
+      else if (t < 18.5){ ry = 0; z = 13.4; }
+      else if (t < 21){ ry = 0; z = lerp(13.4, 17.4, ease(seg(t, 18.5, 21))); }
+      else if (t < 22.6){ ry = lerp(0, PI / 2, ease(seg(t, 21, 22.6))); z = 17.4; }
+      else { ry = PI / 2; z = 17.4; x = lerp(27.5, 42, easeIn(seg(t, 22.6, 27.6))); }
       truckIn.position.set(x, 0, z); truckIn.rotation.y = ry;
-      var sp = mv ? t * 6 * mv : 0;
-      for (var i = 0; i < truckIn.userData.wheels.length; i++) truckIn.userData.wheels[i].rotation.y = sp;
-      truckIn.userData.door.rotation.x = -1.45 * (ease(seg(t, 8.0, 8.9)) - ease(seg(t, 17.4, 18.2)));
+      driveTruck(truckIn);
+      truckDoors(truckIn, ease(seg(t, 8.0, 8.9)) - ease(seg(t, 17.4, 18.2)));
     }
     gate5.userData.pivot.scale.y = 1 - 0.94 * (ease(seg(t, 6.4, 8.0)) - ease(seg(t, 18.0, 19.4)));
 
+    // фура под отгрузку: подъезд, разворот, задним ходом в ворота 2
     var vis2 = t > 25.9;
     truckOut.visible = vis2;
     if (vis2){
-      var x2 = 22, z2 = 15.75, ry2 = -PI / 2, mv2 = 0;
-      if (t < 30){ x2 = lerp(38, 22, ease(seg(t, 26, 30))); mv2 = 1; }
+      var x2 = 20.5, z2 = 15.75, ry2 = -PI / 2;
+      if (t < 30){ x2 = lerp(38, 20.5, ease(seg(t, 26, 30))); }
       else if (t < 32){ ry2 = lerp(-PI / 2, -3 * PI / 2, ease(seg(t, 30, 32))); }
-      else if (t < 35){ ry2 = PI / 2; x2 = lerp(22, 11.6, ease(seg(t, 32, 35))); mv2 = -1; }
-      else if (t < 45){ ry2 = PI / 2; x2 = 11.6; }
-      else { ry2 = PI / 2; x2 = lerp(11.6, 42, easeIn(seg(t, 45, 48))); mv2 = 1; }
+      else if (t < 35){ ry2 = PI / 2; x2 = lerp(20.5, 13.4, ease(seg(t, 32, 35))); }
+      else if (t < 45){ ry2 = PI / 2; x2 = 13.4; }
+      else { ry2 = PI / 2; x2 = lerp(13.4, 42, easeIn(seg(t, 45, 48))); }
       truckOut.position.set(x2, 0, z2); truckOut.rotation.y = ry2;
-      var sp2 = mv2 ? t * 6 * mv2 : 0;
-      for (var j = 0; j < truckOut.userData.wheels.length; j++) truckOut.userData.wheels[j].rotation.y = sp2;
-      truckOut.userData.door.rotation.x = -1.45 * (ease(seg(t, 34.4, 35.2)) - ease(seg(t, 44.0, 44.8)));
+      driveTruck(truckOut);
+      truckDoors(truckOut, ease(seg(t, 34.4, 35.2)) - ease(seg(t, 44.0, 44.8)));
     }
     gate2.userData.pivot.scale.y = 1 - 0.94 * (ease(seg(t, 33, 34.4)) - ease(seg(t, 44.4, 45.8)));
   }
@@ -887,7 +1029,7 @@ body{
       m.visible = true;
       if (k < 0.42){
         var a = ease(k / 0.42);
-        m.position.set(27.5, lerp(1.35, 0.52, a * a), lerp(11.0, 8.4, a));
+        m.position.set(27.5, lerp(1.35, 0.52, a * a), lerp(12.4, 8.4, a));
         m.scale.set(0.92, 0.36, 0.86);
         m.material.color.copy(m.userData.bale);
       } else if (k < 0.62){
@@ -901,7 +1043,7 @@ body{
         m.material.color.copy(m.userData.bale).lerp(m.userData.foam, a3);
       } else {
         var a4 = ease((k - 0.86) / 0.14);
-        m.position.set(lerp(27.2, 22.5, a4), 0.52, lerp(7.1, 5.9 - i * 1.0, a4));
+        m.position.set(lerp(27.2, 26.3 - i * 2.15, a4), 0.52, lerp(7.1, 7.95, a4));
         m.scale.set(1, 1, 1);
         m.material.color.copy(m.userData.foam);
       }
@@ -915,7 +1057,7 @@ body{
     if (c < 2.6){
       var a = ease(seg(c, 0.2, 2.6));
       feedBlock.visible = true;
-      feedBlock.position.set(lerp(22.8, 18.4, a), lerp(0.52, 1.42, a), lerp(3.9, 2.7, a));
+      feedBlock.position.set(lerp(22.2, 18.4, a), lerp(0.52, 1.42, a), lerp(5.2, 2.7, a));
       cutSheet.visible = false; blade.position.x = -1.8;
     } else if (c < 7.6){
       var a2 = seg(c, 2.6, 7.6);
@@ -1006,7 +1148,7 @@ body{
   function animateWorkers(t){
     var c1 = t % 12;
     var a1 = c1 < 5 ? ease(seg(c1, 0, 5)) : c1 < 6 ? 1 : c1 < 11 ? 1 - ease(seg(c1, 6, 11)) : 0;
-    var r1 = along([[28.4, 11.4], [27.9, 9.2], [26.4, 7.4]], a1);
+    var r1 = along([[29.3, 11.2], [28.7, 9.2], [26.7, 7.6]], a1);
     var mv1 = (c1 < 5) || (c1 >= 6 && c1 < 11);
     poseWorker(W[0], r1.x, r1.z, mv1 ? r1.ang + (c1 >= 6 ? PI : 0) : PI * 0.9, mv1, t, false);
 
