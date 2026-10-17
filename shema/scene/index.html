@@ -386,8 +386,7 @@ body{
   function signBoard(w, h, x, y, z, ry){
     var front = new THREE.MeshStandardMaterial({ map: texLoader.load('img/sign.png'), roughness:0.55 });
     var back = new THREE.MeshStandardMaterial({ map: texLoader.load('img/sign.png'), roughness:0.55 });
-    back.map.wrapS = THREE.RepeatWrapping; back.map.repeat.x = -1; back.map.offset.x = 1;
-    var edge = mat(0xECEDE8, 0.6);
+    var edge = mat(0xECEDE8, 0.6);                                 // развёртка куба уже разворачивает заднюю грань
     var m = new THREE.Mesh(BOX, [edge, edge, edge, edge, front, back]);
     m.scale.set(w, h, 0.18); m.position.set(x, y, z); m.rotation.y = ry || 0;
     m.castShadow = true; m.receiveShadow = true;
@@ -397,9 +396,36 @@ body{
   signBoard(7.2, 1.56, 22.4, 5.05, 8.95, 0);                       // главный фасад, над воротами
   box(0.14, 1.05, 0.14, COL.steel, 19.4, 4.28, 8.95, { rough:0.45, metal:0.55 });
   box(0.14, 1.05, 0.14, COL.steel, 25.4, 4.28, 8.95, { rough:0.45, metal:0.55 });
-  signBoard(3.6, 0.78, 9.14, 4.45, 15.75, PI / 2);                 // над воротами отгрузки
-  box(0.12, 0.85, 0.12, COL.steel, 9.14, 3.85, 14.5, { rough:0.45, metal:0.55 });
-  box(0.12, 0.85, 0.12, COL.steel, 9.14, 3.85, 17.0, { rough:0.45, metal:0.55 });
+  // щит над воротами 1 и 2: слово, а не логотип
+  function wordPanel(text, w, h, x, y, z, ry){
+    var cv = document.createElement('canvas');
+    cv.width = 1024; cv.height = Math.round(1024 * h / w);
+    var tex = null;
+    function draw(){
+      var g = cv.getContext('2d');
+      g.fillStyle = '#F7F7F4'; g.fillRect(0, 0, cv.width, cv.height);
+      var lw = cv.height * 0.05;
+      g.strokeStyle = '#365BA3'; g.lineWidth = lw;
+      g.strokeRect(lw, lw, cv.width - lw * 2, cv.height - lw * 2);
+      g.fillStyle = '#365BA3'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      var fs = cv.height * 0.56;
+      do { g.font = '800 ' + fs.toFixed(0) + 'px Montserrat, Arial, sans-serif'; fs -= 2; }
+      while (fs > 10 && g.measureText(text).width > cv.width * 0.78);
+      g.fillText(text, cv.width / 2, cv.height / 2 + cv.height * 0.035);
+      if (tex) tex.needsUpdate = true;
+    }
+    draw(); tex = new THREE.CanvasTexture(cv); draw();
+    var face = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55 });
+    var edge = mat(0xECEDE8, 0.6);
+    var m = new THREE.Mesh(BOX, [edge, edge, edge, edge, face, face]);
+    m.scale.set(w, h, 0.16); m.position.set(x, y, z); m.rotation.y = ry || 0;
+    m.castShadow = true; m.receiveShadow = true; scene.add(m);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+    return m;
+  }
+  wordPanel('ПОГРУЗКА', 4.6, 1.0, 9.14, 4.35, 18.5, PI / 2);       // над воротами 1 и 2
+  box(0.12, 0.6, 0.12, COL.steel, 9.14, 3.6, 16.7, { rough:0.45, metal:0.55 });
+  box(0.12, 0.6, 0.12, COL.steel, 9.14, 3.6, 20.3, { rough:0.45, metal:0.55 });
 
   /* ================= помещение 3: штабель, приёмка, ЧПУ ================= */
   var BW = 2.0, BH = 1.0, BD = 0.85;
