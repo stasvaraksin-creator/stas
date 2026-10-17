@@ -1,0 +1,878 @@
+<title>Цех матрасов в 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Golos+Text:wght@400;500;600&display=swap">
+<style>
+/* Один экран: холст сцены во всю площадь, поверх — титр, стадия и такт цикла. Дневная сцена, тема одна. */
+:root{
+  --sky-1:#DCE4E8; --sky-2:#C4CED2; --sky-3:#AEB6B6;
+  --ink:#161C1E; --ink-2:#5A6568; --ink-3:#879396;
+  --glass:rgba(255,255,255,.84); --glass-line:rgba(22,28,30,.1);
+  --accent:#CE7938; --accent-ink:#8F4E1C; --teal:#2A9A88;
+  --font-d:'Montserrat', system-ui, sans-serif;
+  --font-b:'Golos Text', system-ui, -apple-system, sans-serif;
+  color-scheme: light;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:linear-gradient(180deg, var(--sky-1) 0%, var(--sky-2) 58%, var(--sky-3) 100%);
+  color:var(--ink); font-family:var(--font-b); overflow:hidden;
+}
+#app{position:relative; width:100%; height:100%}
+#app canvas{display:block; width:100%; height:100%}
+
+.hud{position:absolute; pointer-events:none}
+.card{
+  background:var(--glass); border:1px solid var(--glass-line); border-radius:14px;
+  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+  box-shadow:0 2px 6px rgba(20,30,28,.06), 0 14px 34px rgba(20,30,28,.1);
+}
+.title{
+  top:max(14px, env(safe-area-inset-top, 0px));
+  left:max(16px, env(safe-area-inset-left, 0px));
+  padding:11px 15px 12px; max-width:min(62vw, 420px);
+}
+.title h1{margin:0; font-family:var(--font-d); font-weight:800; font-size:clamp(.98rem,.72rem + .9vw,1.3rem); letter-spacing:-.01em; line-height:1.15}
+.title p{margin:4px 0 0; font-size:.78rem; color:var(--ink-2); line-height:1.4}
+.title .tag{
+  display:inline-block; margin-top:8px; font-family:var(--font-d); font-weight:700;
+  font-size:.62rem; letter-spacing:.12em; text-transform:uppercase; color:var(--accent-ink);
+  background:rgba(206,121,56,.13); border-radius:999px; padding:3px 9px;
+}
+.stage{
+  left:max(16px, env(safe-area-inset-left, 0px));
+  right:max(16px, env(safe-area-inset-right, 0px));
+  bottom:max(14px, env(safe-area-inset-bottom, 0px));
+  padding:11px 14px 12px; display:grid; gap:9px;
+}
+.stage-top{display:flex; flex-wrap:wrap; gap:6px 12px; align-items:baseline; min-width:0}
+.stage-n{
+  font-family:var(--font-d); font-weight:800; font-size:.68rem; letter-spacing:.1em;
+  color:#fff; background:var(--accent); border-radius:999px; padding:3px 9px; white-space:nowrap;
+}
+.stage-t{font-family:var(--font-d); font-weight:700; font-size:clamp(.84rem,.74rem + .35vw,1.02rem); letter-spacing:-.01em; min-width:0}
+.stage-s{font-size:.78rem; color:var(--ink-2); min-width:0}
+.bar{position:relative; height:4px; border-radius:999px; background:rgba(22,28,30,.1); overflow:hidden}
+.bar i{position:absolute; inset:0 auto 0 0; width:0; background:var(--accent); border-radius:999px}
+.chips{display:flex; flex-wrap:wrap; gap:4px}
+.chip{
+  font-size:.7rem; line-height:1.2; color:var(--ink-2); white-space:nowrap;
+  background:rgba(22,28,30,.05); border-radius:999px; padding:4px 9px; transition:background .3s, color .3s;
+}
+.chip.on{background:var(--accent); color:#fff; font-weight:600}
+@media (max-width:620px){ .chips{display:none} .title p{display:none} }
+.meta{
+  top:max(14px, env(safe-area-inset-top, 0px));
+  right:max(16px, env(safe-area-inset-right, 0px));
+  padding:8px 12px; font-size:.72rem; color:var(--ink-2); text-align:right; line-height:1.45;
+}
+.meta b{display:block; font-family:var(--font-d); font-weight:800; font-size:.92rem; color:var(--ink); font-variant-numeric:tabular-nums}
+@media (max-width:520px){ .meta{display:none} }
+#fallback{
+  position:absolute; inset:0; display:grid; place-content:center; gap:8px; text-align:center;
+  padding:24px; font-size:.95rem; color:var(--ink-2);
+}
+#fallback[hidden]{display:none}
+#fallback b{font-family:var(--font-d); font-size:1.1rem; color:var(--ink)}
+</style>
+
+<div id="app">
+  <div class="hud card title">
+    <h1>Цех медицинских матрасов</h1>
+    <p>405 м², три помещения, четыре человека. Полный такт — от подачи фуры с блоками ППУ до отгрузки вакуумных рулонов.</p>
+    <span class="tag" id="tag">Такт 48 секунд · сцена зациклена</span>
+  </div>
+
+  <div class="hud card meta">
+    <b id="clock">00:00</b>
+    помещение 3 → 2 → 1
+  </div>
+
+  <div class="hud card stage">
+    <div class="stage-top">
+      <span class="stage-n" id="s-n">1 / 7</span>
+      <span class="stage-t" id="s-t">Подача фуры к воротам 5</span>
+      <span class="stage-s" id="s-s">Блоки ППУ приходят в сжатом виде</span>
+    </div>
+    <div class="bar"><i id="s-bar"></i></div>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div id="fallback" hidden>
+    <b>Сцена не запустилась</b>
+    <span>Браузер не дал WebGL. Откройте страницу в десктопном Chrome, Safari или Firefox с аппаратным ускорением.</span>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  var app = document.getElementById('app');
+  if (!window.THREE){ document.getElementById('fallback').hidden = false; return; }
+
+  /* ================= базовые величины ================= */
+  var T = 48, PI = Math.PI;
+  var COL = {
+    asphalt:0x797E7C, concrete:0xB4B1A8,
+    wall:0xC8C1B2, wallIn:0xE4E0D5, steelDark:0x4B565D, steel:0x939C9F, white:0xDFE2E1,
+    blue:0x3A6FA8, blueLt:0x5B91C9, gate:0xCE7938, door:0xD7DBD9,
+    bale:0x8C9497, cover:0xDFE3E1, roll:0x59BFAB, film:0xBCD7D0,
+    truck:0xE4E7E6, cab:0x2C3A45, tyre:0x22272A, glass:0x92A8B4,
+    skin:0xE0AC85, vest:0xF0801F, pants:0x2C3A44, lampOn:0x37D07A
+  };
+  var SHEET = [0xF5F5F1, 0xF0A4C2, 0x97CBE8];           // белый, розовый, синий — маркировка плотности
+  var FOAM = [0xF2C230,0xE8508D,0x2FA3DB,0x14A06B,0xEE7A2E,0xF2C230,0xE8508D,0x14A06B,0xEE7A2E,0x2FA3DB,0xF2C230,0x14A06B];
+
+  var clamp01 = function(x){ return x < 0 ? 0 : x > 1 ? 1 : x; };
+  var seg = function(t,a,b){ return clamp01((t - a) / (b - a)); };
+  var ease = function(x){ return x * x * (3 - 2 * x); };
+  var easeIn = function(x){ return x * x; };
+  var lerp = function(a,b,t){ return a + (b - a) * t; };
+
+  /* ================= сцена, свет, камера ================= */
+  var scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0xC4CED2, 70, 210);
+  var camera = new THREE.PerspectiveCamera(38, 1, 0.5, 400);
+  var renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.setClearAlpha(0);
+  app.appendChild(renderer.domElement);
+
+  scene.add(new THREE.HemisphereLight(0xDCE8EF, 0x7E8278, 0.5));
+  var sun = new THREE.DirectionalLight(0xFFF4E2, 1.15);
+  sun.position.set(36, 40, -18); sun.target.position.set(14, 0, 11);
+  sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+  var sc = sun.shadow.camera;
+  sc.left = -36; sc.right = 36; sc.top = 36; sc.bottom = -36; sc.near = 12; sc.far = 120;
+  sun.shadow.bias = -0.0008;
+  scene.add(sun); scene.add(sun.target);
+  scene.add(new THREE.AmbientLight(0xFFFFFF, 0.08));
+
+  /* ================= конструктор ================= */
+  var MATS = {};
+  function mat(color, rough, metal){
+    var k = color + '_' + (rough === undefined ? 85 : rough) + '_' + (metal || 0);
+    if (!MATS[k]) MATS[k] = new THREE.MeshStandardMaterial({
+      color: color, roughness: rough === undefined ? 0.85 : rough, metalness: metal || 0
+    });
+    return MATS[k];
+  }
+  var BOX = new THREE.BoxGeometry(1, 1, 1);
+  function box(w, h, d, color, x, y, z, o){
+    o = o || {};
+    var m = new THREE.Mesh(BOX, o.mat || mat(color, o.rough, o.metal));
+    m.scale.set(w, h, d); m.position.set(x, y, z);
+    if (o.ry) m.rotation.y = o.ry;
+    m.castShadow = o.cast !== false; m.receiveShadow = o.recv !== false;
+    (o.parent || scene).add(m);
+    return m;
+  }
+  function cyl(r, h, color, x, y, z, o){
+    o = o || {};
+    var m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, o.seg || 16), o.mat || mat(color, o.rough, o.metal));
+    m.position.set(x, y, z);
+    if (o.rx) m.rotation.x = o.rx;
+    if (o.rz) m.rotation.z = o.rz;
+    m.castShadow = o.cast !== false; m.receiveShadow = true;
+    (o.parent || scene).add(m);
+    return m;
+  }
+  function group(x, y, z, parent){
+    var g = new THREE.Group(); g.position.set(x || 0, y || 0, z || 0); (parent || scene).add(g); return g;
+  }
+
+  /* ================= пол: бетон с крашеной разметкой ================= */
+  var PX = 60;                                  // пикселей на метр
+  var floorCanvas = document.createElement('canvas');
+  floorCanvas.width = 30 * PX; floorCanvas.height = 24 * PX;
+  var floorTex = new THREE.CanvasTexture(floorCanvas);
+  floorTex.anisotropy = 8;
+
+  function roundRect(g, x, y, w, h, r){
+    g.beginPath();
+    g.moveTo(x + r, y); g.lineTo(x + w - r, y); g.quadraticCurveTo(x + w, y, x + w, y + r);
+    g.lineTo(x + w, y + h - r); g.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    g.lineTo(x + r, y + h); g.quadraticCurveTo(x, y + h, x, y + h - r);
+    g.lineTo(x, y + r); g.quadraticCurveTo(x, y, x + r, y); g.closePath();
+  }
+  function hazard(g, x, y, w, h){            // жёлто-чёрная окантовка участка
+    g.save(); g.beginPath(); g.rect(x * PX, y * PX, w * PX, h * PX); g.clip();
+    g.strokeStyle = '#E8B22E'; g.lineWidth = 0.22 * PX;
+    g.strokeRect(x * PX, y * PX, w * PX, h * PX);
+    g.strokeStyle = 'rgba(40,40,40,.55)'; g.lineWidth = 0.07 * PX;
+    for (var d = -h * PX; d < w * PX; d += 0.34 * PX){
+      g.beginPath(); g.moveTo(x * PX + d, y * PX); g.lineTo(x * PX + d + h * PX, y * PX + h * PX); g.stroke();
+    }
+    g.restore();
+  }
+  function paintFloor(){
+    var g = floorCanvas.getContext('2d');
+    g.clearRect(0, 0, floorCanvas.width, floorCanvas.height);
+    g.fillStyle = '#7A7F7D'; g.fillRect(0, 0, 30 * PX, 24 * PX);                        // двор
+    g.fillStyle = '#B3B0A7'; g.fillRect(0, 0, 30 * PX, 9 * PX); g.fillRect(0, 9 * PX, 9 * PX, 15 * PX);
+    g.fillStyle = 'rgba(232,214,164,.26)'; g.fillRect(15 * PX, 0, 15 * PX, 9 * PX);     // пом. 3
+    g.fillStyle = 'rgba(190,212,232,.24)'; g.fillRect(0, 0, 15 * PX, 9 * PX);           // пом. 2
+    g.fillStyle = 'rgba(186,224,210,.24)'; g.fillRect(0, 9 * PX, 9 * PX, 15 * PX);      // пом. 1
+
+    // транспортный проезд: светлая полоса с белой окантовкой
+    var lane = [[27.5,8.2],[27.2,6.6],[24.6,5.6],[19.5,5.6],[16.4,5.9],[12.4,6.2],[7.7,6.2],[4.4,6.4],[4.4,10.4],[4.4,13.6],[6.1,16.2],[5,19.4]];
+    g.lineJoin = 'round'; g.lineCap = 'round';
+    g.strokeStyle = '#E4E2D8'; g.lineWidth = 2.5 * PX;
+    g.beginPath(); g.moveTo(lane[0][0] * PX, lane[0][1] * PX);
+    for (var i = 1; i < lane.length; i++) g.lineTo(lane[i][0] * PX, lane[i][1] * PX);
+    g.stroke();
+    g.strokeStyle = '#B6B3AA'; g.lineWidth = 2.3 * PX; g.stroke();
+
+    // разметка у ворот + номера ворот, как краской по полу
+    g.fillStyle = 'rgba(240,240,232,.9)';
+    g.fillRect(26.1 * PX, 8.0 * PX, 2.8 * PX, 0.12 * PX);
+    g.fillRect(8.0 * PX, 14.1 * PX, 0.12 * PX, 3.3 * PX);
+    hazard(g, 15.6, 0.8, 5.6, 0.34);          // перед ЧПУ
+    hazard(g, 5.1, 14.0, 3.5, 0.34);          // перед ВУМ-01
+    hazard(g, 26.0, 8.45, 3.0, 0.3);          // у ворот 5
+
+    var fam = '"Golos Text", Arial, sans-serif';
+    g.fillStyle = 'rgba(70,74,72,.55)';
+    g.font = '600 ' + (0.62 * PX) + 'px ' + fam;
+    g.fillText('05', 26.2 * PX, 8.0 * PX);
+    g.fillText('04', 18.2 * PX, 8.7 * PX);
+    g.fillText('03', 11.9 * PX, 8.7 * PX);
+    g.save(); g.translate(8.2 * PX, 14.2 * PX); g.rotate(PI / 2); g.fillText('02', 0, 0); g.restore();
+    g.save(); g.translate(8.2 * PX, 19.7 * PX); g.rotate(PI / 2); g.fillText('01', 0, 0); g.restore();
+
+    // названия участков, крупно по полу
+    g.fillStyle = 'rgba(66,70,68,.42)';
+    g.font = '700 ' + (0.78 * PX) + 'px ' + fam;
+    g.fillText('03 · ПРИЁМКА И РАСКРОЙ', 16.1 * PX, 8.2 * PX);
+    g.fillText('02 · БУФЕР ЛИСТОВ', 0.9 * PX, 8.2 * PX);
+    g.save(); g.translate(1.5 * PX, 23.3 * PX); g.fillText('01 · УПАКОВКА И ОТГРУЗКА', 0, 0); g.restore();
+    g.font = '500 ' + (0.42 * PX) + 'px ' + fam;
+    g.fillStyle = 'rgba(66,70,68,.34)';
+    g.fillText('135 м²', 16.1 * PX, 8.85 * PX);
+    g.fillText('135 м²', 0.9 * PX, 8.85 * PX);
+    floorTex.needsUpdate = true;
+  }
+  paintFloor();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(paintFloor);
+
+  var ground = new THREE.Mesh(new THREE.PlaneGeometry(240, 240), mat(COL.asphalt, 0.98));
+  ground.rotation.x = -PI / 2; ground.position.set(14, -0.03, 12); ground.receiveShadow = true;
+  scene.add(ground);
+  var floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 24), new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.94 }));
+  floor.rotation.x = -PI / 2; floor.position.set(15, 0, 12); floor.receiveShadow = true;
+  scene.add(floor);
+
+  /* ================= стены, окна, фермы ================= */
+  var WH = 3.6, WT = 0.3;
+  var glassMat = new THREE.MeshStandardMaterial({ color: COL.glass, roughness:0.15, metalness:0.35, transparent:true, opacity:0.4 });
+
+  // «кукольный дом»: стена, оказавшаяся между камерой и цехом, растворяется
+  var FADE = [];
+  function fadeable(obj, nx, nz, cx, cz){
+    var rec = { o: obj, meshes: [], mats: [], nx: nx, nz: nz, cx: cx, cz: cz };
+    obj.traverse(function(o){
+      if (!o.isMesh) return;
+      o.material = o.material.clone();
+      o.material.transparent = true;
+      o.material.userData.base = o.material.opacity;
+      o.userData.canCast = o.castShadow;
+      rec.meshes.push(o); rec.mats.push(o.material);
+    });
+    FADE.push(rec);
+    return obj;
+  }
+  function updateFade(){
+    for (var i = 0; i < FADE.length; i++){
+      var f = FADE[i];
+      var d = (camera.position.x - f.cx) * f.nx + (camera.position.z - f.cz) * f.nz;
+      var op = 1 - clamp01((d + 1.5) / 7);
+      f.o.visible = op > 0.03;
+      for (var m = 0; m < f.mats.length; m++) f.mats[m].opacity = (f.mats[m].userData.base || 1) * op;
+      var cast = op > 0.6;
+      for (var k = 0; k < f.meshes.length; k++) f.meshes[k].castShadow = cast && f.meshes[k].userData.canCast;
+    }
+  }
+
+  function wallRun(x1, z1, x2, z2, windows, nx, nz){
+    var g = new THREE.Group(); scene.add(g);
+    var horiz = Math.abs(x2 - x1) > Math.abs(z2 - z1);
+    var len = horiz ? Math.abs(x2 - x1) : Math.abs(z2 - z1);
+    var cx = (x1 + x2) / 2, cz = (z1 + z2) / 2;
+    var wm = new THREE.MeshStandardMaterial({ color: COL.wall, roughness: 0.92 });
+    if (!windows || len < 4.5){
+      box(horiz ? len + WT : WT, WH, horiz ? WT : len + WT, COL.wall, cx, WH / 2, cz, { parent:g, mat:wm });
+    } else {
+      // низ, верх и простенки — между ними остекление
+      box(horiz ? len + WT : WT, 1.5, horiz ? WT : len + WT, COL.wall, cx, 0.75, cz, { parent:g, mat:wm });
+      box(horiz ? len + WT : WT, 0.85, horiz ? WT : len + WT, COL.wall, cx, WH - 0.42, cz, { parent:g, mat:wm });
+      box(horiz ? len : 0.1, 1.25, horiz ? 0.1 : len, COL.glass, cx, 2.13, cz, { parent:g, mat:glassMat.clone(), cast:false });
+      var n = Math.max(2, Math.round(len / 2.6));
+      for (var i = 0; i <= n; i++){
+        var f = i / n;
+        var mx = horiz ? lerp(Math.min(x1, x2), Math.max(x1, x2), f) : cx;
+        var mz = horiz ? cz : lerp(Math.min(z1, z2), Math.max(z1, z2), f);
+        box(horiz ? 0.16 : WT, 1.3, horiz ? WT : 0.16, COL.wall, mx, 2.13, mz, { parent:g, mat:wm, cast:false });
+      }
+    }
+    return fadeable(g, nx, nz, cx, cz);
+  }
+  wallRun(0, 0, 30, 0, true, 0, -1);             // север, с остеклением
+  wallRun(30, 0, 30, 9, true, 1, 0);             // восток полосы
+  wallRun(9, 9, 11.7, 9, false, 0, 1); wallRun(14.7, 9, 18, 9, false, 0, 1);
+  wallRun(21, 9, 26, 9, false, 0, 1); wallRun(29, 9, 30, 9, false, 0, 1);
+  wallRun(0, 9, 3.4, 9, false, 0, 1); wallRun(5.4, 9, 9, 9, false, 0, 1);   // стена пом. 2 / пом. 1 с дверью
+  wallRun(9, 9, 9, 14, false, 1, 0); wallRun(9, 17.5, 9, 19.5, false, 1, 0); wallRun(9, 23, 9, 24, false, 1, 0);
+  wallRun(0, 24, 9, 24, true, 0, 1);             // юг пом. 1
+  wallRun(0, 0, 0, 24, true, -1, 0);             // запад
+  box(0.12, 0.12, 9, COL.steel, 15, 0.06, 4.5, { cast:false });   // условная граница пом. 2 / 3
+
+  // фермы и подвесные светильники
+  for (var fx = 3.5; fx <= 29; fx += 6.4){
+    box(0.14, 0.26, 9.4, COL.steel, fx, WH + 0.18, 4.5, { rough:0.6, metal:0.3, recv:false });
+  }
+  for (var fz = 12.5; fz <= 23; fz += 6.4){
+    box(9.4, 0.26, 0.14, COL.steel, 4.5, WH + 0.18, fz, { rough:0.6, metal:0.3, recv:false });
+  }
+  var lampMat = new THREE.MeshStandardMaterial({ color:0xFFFFFF, emissive:0xFFF0D0, emissiveIntensity:0.55, roughness:0.5 });
+  function lamp(x, z){ box(1.2, 0.12, 0.3, 0xFFFFFF, x, WH - 0.25, z, { mat:lampMat, cast:false, recv:false }); }
+  lamp(5, 2.5); lamp(12, 2.5); lamp(19, 2.5); lamp(26, 2.5);
+  lamp(5, 6.5); lamp(12, 6.5); lamp(19, 6.5); lamp(26, 6.5);
+  lamp(3, 12); lamp(3, 17); lamp(3, 22); lamp(7, 14); lamp(7, 20);
+
+  /* ================= ворота ================= */
+  function gate(x, z, w, horiz){
+    var g = group(x, 0, z);
+    if (horiz){
+      box(w + 0.5, 0.26, 0.44, COL.gate, 0, 3.4, 0, { parent:g });
+      box(0.26, 3.4, 0.44, COL.gate, -w / 2 - 0.12, 1.7, 0, { parent:g });
+      box(0.26, 3.4, 0.44, COL.gate, w / 2 + 0.12, 1.7, 0, { parent:g });
+    } else {
+      box(0.44, 0.26, w + 0.5, COL.gate, 0, 3.4, 0, { parent:g });
+      box(0.44, 3.4, 0.26, COL.gate, 0, 1.7, -w / 2 - 0.12, { parent:g });
+      box(0.44, 3.4, 0.26, COL.gate, 0, 1.7, w / 2 + 0.12, { parent:g });
+    }
+    var pivot = group(0, 3.25, 0, g);
+    if (horiz) box(w, 3.2, 0.12, COL.door, 0, -1.6, 0, { parent:pivot });
+    else box(0.12, 3.2, w, COL.door, 0, -1.6, 0, { parent:pivot });
+    for (var i = 1; i < 6; i++){
+      if (horiz) box(w, 0.05, 0.16, COL.steel, 0, -0.53 * i, 0, { parent:pivot, cast:false });
+      else box(0.16, 0.05, w, COL.steel, 0, -0.53 * i, 0, { parent:pivot, cast:false });
+    }
+    g.userData.pivot = pivot;
+    return g;
+  }
+  var gate5 = fadeable(gate(27.5, 9, 3, true), 0, 1, 27.5, 9);
+  fadeable(gate(19.5, 9, 3, true), 0, 1, 19.5, 9);
+  fadeable(gate(13.2, 9, 3, true), 0, 1, 13.2, 9);
+  var gate2 = fadeable(gate(9, 15.75, 3.5, false), 1, 0, 9, 15.75);
+  fadeable(gate(9, 21.25, 3.5, false), 1, 0, 9, 21.25);
+
+  /* ================= помещение 3: штабель, приёмка, ЧПУ ================= */
+  var BW = 2.0, BH = 1.0, BD = 0.85;
+  for (var i3 = 0; i3 < 12; i3++){
+    var col3 = i3 % 2, row3 = Math.floor(i3 / 2) % 2, lvl3 = Math.floor(i3 / 4);
+    box(BW, BH, BD, FOAM[i3], 23.6 + col3 * 2.1, 0.52 + lvl3 * 1.02, 1.5 + row3 * 0.95, { rough:0.97 });
+  }
+  box(2.8, 0.14, 1.8, COL.steel, 27.2, 0.07, 7.1, { rough:0.9 });         // поддон приёмки
+
+  var cnc = group(18.4, 0, 2.7);
+  box(5.0, 0.8, 2.4, COL.white, 0, 0.4, 0, { parent:cnc, rough:0.55 });
+  box(5.2, 0.14, 2.6, COL.steelDark, 0, 0.86, 0, { parent:cnc, rough:0.5, metal:0.4 });
+  box(0.26, 0.75, 0.26, COL.blue, -2.3, 0.38, -1.0, { parent:cnc, rough:0.5 });
+  box(0.26, 0.75, 0.26, COL.blue, 2.3, 0.38, -1.0, { parent:cnc, rough:0.5 });
+  box(0.26, 0.75, 0.26, COL.blue, -2.3, 0.38, 1.0, { parent:cnc, rough:0.5 });
+  box(0.26, 0.75, 0.26, COL.blue, 2.3, 0.38, 1.0, { parent:cnc, rough:0.5 });
+  box(0.32, 2.4, 2.9, COL.white, -2.65, 1.2, 0, { parent:cnc, rough:0.5 });
+  box(0.32, 2.4, 2.9, COL.white, 2.65, 1.2, 0, { parent:cnc, rough:0.5 });
+  box(5.6, 0.24, 0.24, COL.blue, 0, 2.4, -1.35, { parent:cnc, rough:0.5 });
+  box(5.6, 0.24, 0.24, COL.blue, 0, 2.4, 1.35, { parent:cnc, rough:0.5 });
+  box(0.6, 1.1, 0.4, COL.steelDark, 3.0, 1.3, 1.1, { parent:cnc, rough:0.45 });
+  box(0.42, 0.3, 0.06, 0x8FD4F2, 3.0, 1.72, 0.9, { parent:cnc, rough:0.2, cast:false });
+  var blade = group(0, 0, 0, cnc);
+  box(0.16, 0.55, 2.7, COL.steelDark, 0, 1.35, 0, { parent:blade, rough:0.4, metal:0.6 });
+  box(0.05, 0.05, 2.7, 0xF2F4F3, 0, 1.1, 0, { parent:blade, cast:false, rough:0.3, metal:0.8 });
+
+  function andon(parent, x, y, z){
+    cyl(0.05, 0.6, COL.steelDark, x, y + 0.3, z, { parent:parent, seg:10, cast:false });
+    cyl(0.11, 0.17, 0xD64545, x, y + 0.72, z, { parent:parent, seg:12, cast:false });
+    cyl(0.11, 0.17, 0xE8B22E, x, y + 0.89, z, { parent:parent, seg:12, cast:false });
+    var on = new THREE.MeshStandardMaterial({ color:COL.lampOn, emissive:COL.lampOn, emissiveIntensity:0.9, roughness:0.4 });
+    cyl(0.11, 0.17, COL.lampOn, x, y + 1.06, z, { parent:parent, seg:12, cast:false, mat:on });
+  }
+  andon(cnc, 2.65, 2.4, -1.0);
+
+  var feedBlock = box(BW, BH, BD, FOAM[3], 22.8, 0.52, 3.9, { rough:0.97 });
+  var cutSheet = box(BW, 0.1, BD, SHEET[0], 18.4, 1.95, 2.7, { rough:0.95 });
+
+  /* ================= помещение 2: буфер листов ================= */
+  var stackX = [12.4, 7.7, 3.0], stackTop = [];
+  for (var s = 0; s < 3; s++){
+    box(2.4, 0.12, 1.15, COL.steel, stackX[s], 0.06, 3.1, { rough:0.9, cast:false });
+    for (var j = 0; j < 14; j++) box(2.0, 0.1, 0.85, SHEET[s], stackX[s], 0.17 + j * 0.105, 3.1, { rough:0.95, cast: j > 9 });
+    stackTop[s] = 0.17 + 14 * 0.105;
+  }
+
+  /* ================= помещение 1: стол, ВУМ-01, рулоны ================= */
+  var table = group(2.4, 0, 11.6);
+  box(2.8, 0.1, 1.3, 0xE7E3DA, 0, 0.9, 0, { parent:table, rough:0.7 });
+  box(2.6, 0.08, 1.1, COL.blue, 0, 0.84, 0, { parent:table, rough:0.6, cast:false });
+  box(0.1, 0.84, 0.1, COL.blue, -1.3, 0.42, -0.55, { parent:table });
+  box(0.1, 0.84, 0.1, COL.blue, 1.3, 0.42, -0.55, { parent:table });
+  box(0.1, 0.84, 0.1, COL.blue, -1.3, 0.42, 0.55, { parent:table });
+  box(0.1, 0.84, 0.1, COL.blue, 1.3, 0.42, 0.55, { parent:table });
+  cyl(0.22, 1.2, COL.film, 0, 1.5, -0.78, { parent:table, rz:PI / 2, rough:0.6 });
+  box(0.9, 0.5, 0.7, COL.cover, 1.55, 1.15, 0.25, { parent:table, rough:0.9 });
+
+  var vum = group(6.85, 0, 12.1);
+  box(2.4, 1.5, 2.6, COL.white, 0, 0.75, 0, { parent:vum, rough:0.5 });
+  box(2.5, 0.2, 2.7, COL.blue, 0, 1.6, 0, { parent:vum, rough:0.5 });
+  box(0.28, 1.5, 2.6, COL.white, -1.32, 2.45, 0, { parent:vum, rough:0.5 });
+  box(0.28, 1.5, 2.6, COL.white, 1.32, 2.45, 0, { parent:vum, rough:0.5 });
+  box(2.9, 0.22, 2.8, COL.steelDark, 0, 3.2, 0, { parent:vum, rough:0.5, metal:0.4 });
+  box(0.55, 0.8, 0.35, COL.steelDark, 1.5, 1.6, 0.9, { parent:vum, rough:0.45 });
+  box(0.4, 0.28, 0.06, 0x8FD4F2, 1.5, 1.85, 0.74, { parent:vum, rough:0.2, cast:false });
+  var press = box(2.0, 0.26, 2.2, COL.steelDark, 0, 2.4, 0, { parent:vum, rough:0.5, metal:0.5 });
+  box(1.7, 0.12, 1.2, COL.steel, 0, 1.05, 1.8, { parent:vum, rough:0.6, metal:0.3 });
+  box(1.7, 0.12, 1.2, COL.steel, 0, 1.05, -1.8, { parent:vum, rough:0.6, metal:0.3 });
+  andon(vum, -1.3, 3.2, -1.0);
+
+  var pair = group(2.4, 0.95, 12.4);
+  var mat1 = box(2.0, 0.11, 0.85, COL.cover, 0, 0.06, 0, { parent:pair, rough:0.85 });
+  var mat2 = box(2.0, 0.11, 0.85, COL.cover, 0, 0.19, 0, { parent:pair, rough:0.85 });
+  var sleeveMat = new THREE.MeshStandardMaterial({ color:COL.film, roughness:0.3, transparent:true, opacity:0.45 });
+  var sleeve = box(2.16, 0.32, 0.98, COL.film, 0, 0.13, 0, { parent:pair, mat:sleeveMat });
+  pair.visible = false;
+
+  var tableSheet = box(2.0, 0.1, 0.85, SHEET[0], 2.4, 1.0, 11.6, { rough:0.95 }); tableSheet.visible = false;
+  var tableCover = box(2.06, 0.13, 0.9, COL.cover, 2.4, 1.0, 11.6, { rough:0.85 }); tableCover.visible = false;
+  var carried = box(2.0, 0.1, 0.85, SHEET[0], 0, 0, 0, { rough:0.95 }); carried.visible = false;
+
+  var ROLL_R = 0.34;
+  function rollMesh(x, y, z){ return cyl(ROLL_R, 0.95, COL.roll, x, y, z, { rz:PI / 2, seg:14, rough:0.55 }); }
+  for (var r = 0; r < 3; r++){
+    var n = 6 - r;
+    for (var c = 0; c < n; c++) rollMesh(1.7 + c * 1.02 + r * 0.51, ROLL_R + r * 0.62, 19.4 + (c % 2) * 1.2);
+  }
+  for (var r2 = 0; r2 < 5; r2++) rollMesh(2.2 + r2 * 1.02, ROLL_R, 21.7);
+  var liveRoll = rollMesh(6.85, ROLL_R, 13.9); liveRoll.visible = false;
+  var loadRoll = rollMesh(4.5, ROLL_R, 20.2); loadRoll.visible = false;
+
+  /* ================= блоки из фуры ================= */
+  var bales = [];
+  for (var b = 0; b < 4; b++){
+    var bm = box(BW, BH, BD, COL.bale, 27.5, 0.5, 11, { rough:0.92 });
+    bm.material = new THREE.MeshStandardMaterial({ color: COL.bale, roughness:0.9 });
+    bm.userData.foam = new THREE.Color(FOAM[(b * 3 + 1) % FOAM.length]);
+    bm.userData.bale = new THREE.Color(COL.bale);
+    bm.visible = false;
+    bales.push(bm);
+  }
+
+  /* ================= фуры ================= */
+  function makeTruck(){
+    var g = group(0, 0, 0);
+    box(2.55, 2.9, 7.4, COL.truck, 0, 2.5, -0.6, { parent:g, rough:0.5 });
+    box(2.6, 0.2, 7.5, COL.steel, 0, 1.0, -0.6, { parent:g, rough:0.6, metal:0.3 });
+    box(2.58, 0.12, 7.42, COL.blue, 0, 1.75, -0.6, { parent:g, rough:0.5, cast:false });
+    box(2.45, 2.3, 2.2, COL.cab, 0, 1.75, 4.2, { parent:g, rough:0.45, metal:0.2 });
+    box(2.3, 0.8, 0.12, COL.glass, 0, 2.55, 5.3, { parent:g, rough:0.2, metal:0.5 });
+    box(2.5, 0.5, 0.5, COL.steelDark, 0, 0.8, 5.35, { parent:g, rough:0.6 });
+    var wheels = [], wz = [4.1, -2.3, -3.6];
+    for (var i = 0; i < wz.length; i++){
+      wheels.push(cyl(0.52, 0.32, COL.tyre, 1.25, 0.52, wz[i], { parent:g, rz:PI / 2, seg:14, rough:0.9 }));
+      wheels.push(cyl(0.52, 0.32, COL.tyre, -1.25, 0.52, wz[i], { parent:g, rz:PI / 2, seg:14, rough:0.9 }));
+    }
+    var doorPivot = group(0, 3.95, -4.3, g);
+    box(2.5, 2.85, 0.1, COL.door, 0, -1.42, 0, { parent:doorPivot, rough:0.6 });
+    g.userData = { wheels: wheels, door: doorPivot };
+    return g;
+  }
+  var truckIn = makeTruck(), truckOut = makeTruck();
+
+  /* ================= рабочие ================= */
+  function makeWorker(){
+    var g = group(0, 0, 0);
+    var body = group(0, 0, 0, g);
+    box(0.5, 0.6, 0.28, COL.vest, 0, 1.27, 0, { parent:body, rough:0.8 });
+    box(0.52, 0.16, 0.3, COL.steelDark, 0, 1.02, 0, { parent:body, rough:0.8, cast:false });
+    var head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 14, 12), mat(COL.skin, 0.9));
+    head.position.set(0, 1.68, 0); head.castShadow = true; body.add(head);
+    cyl(0.145, 0.07, 0xF4F6F5, 0, 1.78, 0, { parent:body, seg:12, rough:0.7 });
+    function limb(w, h, d, color, x, y, z){
+      var p = group(x, y, z, body);
+      box(w, h, d, color, 0, -h / 2, 0, { parent:p, rough:0.85 });
+      return p;
+    }
+    g.userData = {
+      body: body,
+      legL: limb(0.2, 0.92, 0.22, COL.pants, 0.14, 0.95, 0),
+      legR: limb(0.2, 0.92, 0.22, COL.pants, -0.14, 0.95, 0),
+      armL: limb(0.14, 0.58, 0.16, COL.vest, 0.31, 1.5, 0),
+      armR: limb(0.14, 0.58, 0.16, COL.vest, -0.31, 1.5, 0)
+    };
+    return g;
+  }
+  var W = [makeWorker(), makeWorker(), makeWorker(), makeWorker()];
+
+  function poseWorker(w, x, z, ang, moving, t, carry){
+    var u = w.userData;
+    w.position.x = x; w.position.z = z; w.rotation.y = ang;
+    var sw = Math.sin(t * 7.5);
+    if (moving){
+      u.legL.rotation.x = sw * 0.75; u.legR.rotation.x = -sw * 0.75;
+      u.body.position.y = Math.abs(Math.cos(t * 7.5)) * 0.045;
+    } else {
+      u.legL.rotation.x *= 0.85; u.legR.rotation.x *= 0.85; u.body.position.y *= 0.85;
+    }
+    if (carry){ u.armL.rotation.x = -1.35; u.armR.rotation.x = -1.35; }
+    else if (moving){ u.armL.rotation.x = -sw * 0.6; u.armR.rotation.x = sw * 0.6; }
+    else {
+      u.armL.rotation.x = Math.sin(t * 2.6) * 0.45 - 0.2;
+      u.armR.rotation.x = Math.sin(t * 2.6 + 1.1) * 0.45 - 0.2;
+    }
+  }
+
+  var _p = { x:0, z:0, ang:0 };
+  function along(pts, k){
+    var n = pts.length - 1;
+    var i = Math.min(Math.floor(k * n), n - 1);
+    var f = k * n - i, a = pts[i], b = pts[i + 1];
+    _p.x = a[0] + (b[0] - a[0]) * f;
+    _p.z = a[1] + (b[1] - a[1]) * f;
+    _p.ang = Math.atan2(b[0] - a[0], b[1] - a[1]);
+    return _p;
+  }
+
+  /* ================= карточки над оборудованием ================= */
+  var CARDS = [];
+  function infoCard(title, big, sub, x, y, z, chips){
+    var cv = document.createElement('canvas'); cv.width = 520; cv.height = 300;
+    function draw(){
+      var g = cv.getContext('2d');
+      g.clearRect(0, 0, 520, 300);
+      g.fillStyle = 'rgba(16,22,24,.1)'; roundRect(g, 14, 20, 492, 262, 22); g.fill();
+      g.fillStyle = 'rgba(255,255,255,.95)'; roundRect(g, 10, 12, 492, 262, 22); g.fill();
+      g.fillStyle = '#CE7938'; roundRect(g, 34, 42, 46, 6, 3); g.fill();
+      g.fillStyle = '#5A6568'; g.font = '600 26px "Golos Text", Arial, sans-serif';
+      g.fillText(title, 34, 92);
+      g.fillStyle = '#161C1E'; g.font = '800 52px Montserrat, Arial, sans-serif';
+      g.fillText(big, 34, 158);
+      g.fillStyle = '#879396'; g.font = '500 24px "Golos Text", Arial, sans-serif';
+      g.fillText(sub, 34, 196);
+      if (chips){
+        for (var i = 0; i < chips.length; i++){
+          g.fillStyle = chips[i];
+          roundRect(g, 34 + i * 58, 220, 48, 26, 8); g.fill();
+          g.strokeStyle = 'rgba(16,22,24,.15)'; g.lineWidth = 2; g.stroke();
+        }
+      } else {
+        g.fillStyle = '#37D07A'; g.beginPath(); g.arc(44, 232, 8, 0, 7); g.fill();
+        g.fillStyle = '#5A6568'; g.font = '500 23px "Golos Text", Arial, sans-serif';
+        g.fillText('работает', 62, 241);
+      }
+      if (tex) tex.needsUpdate = true;
+    }
+    var tex = null; draw(); tex = new THREE.CanvasTexture(cv); draw();
+    var spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    spr.scale.set(2.8, 1.62, 1); spr.position.set(x, y, z);
+    scene.add(spr); CARDS.push(spr);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+    return spr;
+  }
+  function updateCards(){                        // карточка проявляется, когда камера подходит к участку
+    for (var i = 0; i < CARDS.length; i++){
+      var s = CARDS[i];
+      var op = 1 - clamp01((s.position.distanceTo(camera.position) - 15) / 11);
+      s.material.opacity = op;
+      s.visible = op > 0.02;
+    }
+  }
+  infoCard('ЧПУ-раскрой', '2000×800×100', 'мм — лист ППУ', 18.4, 4.9, 2.7);
+  infoCard('ВУМ-01', '2 матраса', 'в одном рулоне', 6.85, 5.2, 12.1);
+  infoCard('Ворота 5 · приёмка', 'Блоки ППУ', 'приходят в сжатом виде', 27.3, 5.0, 7.0);
+  infoCard('Ворота 2 · отгрузка', 'Рулоны', 'вакуум, по 2 матраса', 9.2, 5.0, 15.75);
+  infoCard('Помещение 2 · буфер', '135 м²', 'маркировка по плотности', 7.7, 4.6, 3.1,
+           ['#F5F5F1', '#F0A4C2', '#97CBE8']);
+
+  /* ================= синие дуги связей ================= */
+  var linkMat = new THREE.MeshBasicMaterial({ color: COL.blueLt, transparent: true, opacity: 0.4 });
+  function link(a, b, h){
+    var p0 = new THREE.Vector3(a[0], a[1], a[2]);
+    var p2 = new THREE.Vector3(b[0], b[1], b[2]);
+    var p1 = p0.clone().add(p2).multiplyScalar(0.5); p1.y += h;
+    var curve = new THREE.QuadraticBezierCurve3(p0, p1, p2);
+    var mesh = new THREE.Mesh(new THREE.TubeGeometry(curve, 36, 0.035, 6, false), linkMat);
+    scene.add(mesh);
+  }
+  link([27.5, 3.4, 7.2], [18.4, 3.6, 2.7], 1.6);
+  link([18.4, 3.6, 2.7], [7.7, 3.2, 3.1], 1.8);
+  link([7.7, 3.2, 3.1], [2.4, 3.0, 11.6], 2.0);
+  link([2.4, 3.0, 11.6], [6.85, 3.6, 12.1], 1.2);
+  link([6.85, 3.6, 12.1], [9.0, 3.2, 15.75], 1.2);
+
+  /* ================= траектория камеры ================= */
+  function curve3(arr){
+    return new THREE.CatmullRomCurve3(arr.map(function(p){ return new THREE.Vector3(p[0], p[1], p[2]); }), true, 'catmullrom', 0.5);
+  }
+  // десять точек по кольцу вокруг цеха: 0 — общий план, далее по участкам в темпе такта
+  var camPath = curve3([
+    [36, 18, 32], [38, 14, 26], [34, 15, 6], [33, 12, -9], [22, 11, -12],
+    [6, 11, -13], [-10, 11, -2], [-9, 7.5, 13], [-8, 7.5, 23], [13, 9.5, 30]
+  ]);
+  var camLook = curve3([
+    [15, 2, 11], [26.5, 2, 10], [26.5, 2, 6.5], [24, 2, 3], [18.4, 1.8, 2.7],
+    [8, 1.8, 3.2], [4.5, 1.8, 8], [4, 1.4, 12.6], [5, 1.2, 18], [8.5, 1.4, 16.5]
+  ]);
+  var camPos = new THREE.Vector3(), camTgt = new THREE.Vector3();
+
+  /* ================= подписи стадий ================= */
+  var STAGES = [
+    [0, 'Подача фуры к воротам 5', 'Блоки ППУ приходят в сжатом виде'],
+    [7, 'Разгрузка и расправление', 'Блок восстанавливает объём и уходит в штабель'],
+    [17, 'Раскрой на ЧПУ', 'Горизонтальный нож снимает лист 2000×800×100'],
+    [26, 'Буфер листов, помещение 2', 'Белые, розовые, синие — маркировка плотности'],
+    [32, 'Чехол и рукав', 'Два матраса в полиэтиленовом рукаве'],
+    [38, 'ВУМ-01: вакуум и скрутка', 'Из пары матрасов получается один рулон'],
+    [43, 'Отгрузка через ворота 2', 'Рулоны уходят в фуру']
+  ];
+  var chipsEl = document.getElementById('chips');
+  STAGES.forEach(function(s, i){
+    var c = document.createElement('span');
+    c.className = 'chip'; c.textContent = (i + 1) + '. ' + s[1];
+    chipsEl.appendChild(c);
+  });
+  var chips = chipsEl.children, lastStage = -1;
+  var elN = document.getElementById('s-n'), elT = document.getElementById('s-t'),
+      elS = document.getElementById('s-s'), elBar = document.getElementById('s-bar'),
+      elClock = document.getElementById('clock');
+
+  /* ================= анимация ================= */
+  function animateTrucks(t){
+    var vis = t < 27.6;
+    truckIn.visible = vis;
+    if (vis){
+      var x = 27.5, z = 14.6, ry = -PI / 2, mv = 0;
+      if (t < 3.5){ x = lerp(37, 27.5, ease(seg(t, 0, 3.5))); mv = 1; }
+      else if (t < 5.5){ ry = lerp(-PI / 2, 0, ease(seg(t, 3.5, 5.5))); }
+      else if (t < 8.2){ ry = 0; z = lerp(14.6, 11.6, ease(seg(t, 5.5, 8.2))); mv = -1; }
+      else if (t < 18.5){ ry = 0; z = 11.6; }
+      else if (t < 21){ ry = 0; z = lerp(11.6, 15.6, ease(seg(t, 18.5, 21))); mv = 1; }
+      else if (t < 22.6){ ry = lerp(0, PI / 2, ease(seg(t, 21, 22.6))); z = 15.6; }
+      else { ry = PI / 2; z = 15.6; x = lerp(27.5, 42, easeIn(seg(t, 22.6, 27.6))); mv = 1; }
+      truckIn.position.set(x, 0, z); truckIn.rotation.y = ry;
+      var sp = mv ? t * 6 * mv : 0;
+      for (var i = 0; i < truckIn.userData.wheels.length; i++) truckIn.userData.wheels[i].rotation.y = sp;
+      truckIn.userData.door.rotation.x = -1.45 * (ease(seg(t, 8.0, 8.9)) - ease(seg(t, 17.4, 18.2)));
+    }
+    gate5.userData.pivot.scale.y = 1 - 0.94 * (ease(seg(t, 6.4, 8.0)) - ease(seg(t, 18.0, 19.4)));
+
+    var vis2 = t > 25.9;
+    truckOut.visible = vis2;
+    if (vis2){
+      var x2 = 22, z2 = 15.75, ry2 = -PI / 2, mv2 = 0;
+      if (t < 30){ x2 = lerp(38, 22, ease(seg(t, 26, 30))); mv2 = 1; }
+      else if (t < 32){ ry2 = lerp(-PI / 2, -3 * PI / 2, ease(seg(t, 30, 32))); }
+      else if (t < 35){ ry2 = PI / 2; x2 = lerp(22, 11.6, ease(seg(t, 32, 35))); mv2 = -1; }
+      else if (t < 45){ ry2 = PI / 2; x2 = 11.6; }
+      else { ry2 = PI / 2; x2 = lerp(11.6, 42, easeIn(seg(t, 45, 48))); mv2 = 1; }
+      truckOut.position.set(x2, 0, z2); truckOut.rotation.y = ry2;
+      var sp2 = mv2 ? t * 6 * mv2 : 0;
+      for (var j = 0; j < truckOut.userData.wheels.length; j++) truckOut.userData.wheels[j].rotation.y = sp2;
+      truckOut.userData.door.rotation.x = -1.45 * (ease(seg(t, 34.4, 35.2)) - ease(seg(t, 44.0, 44.8)));
+    }
+    gate2.userData.pivot.scale.y = 1 - 0.94 * (ease(seg(t, 33, 34.4)) - ease(seg(t, 44.4, 45.8)));
+  }
+
+  function animateUnload(t){
+    for (var i = 0; i < bales.length; i++){
+      var m = bales[i], t0 = 8.8 + i * 2.1, k = seg(t, t0, t0 + 2.2);
+      if (t < t0 || t > 46.5){ m.visible = false; continue; }
+      m.visible = true;
+      if (k < 0.42){
+        var a = ease(k / 0.42);
+        m.position.set(27.5, lerp(1.35, 0.52, a * a), lerp(11.0, 8.4, a));
+        m.scale.set(0.92, 0.36, 0.86);
+        m.material.color.copy(m.userData.bale);
+      } else if (k < 0.62){
+        var a2 = ease((k - 0.42) / 0.2);
+        m.position.set(lerp(27.5, 27.2, a2), 0.52, lerp(8.4, 7.1, a2));
+        m.scale.set(0.92, 0.36, 0.86);
+      } else if (k < 0.86){
+        var a3 = ease((k - 0.62) / 0.24);
+        m.position.set(27.2, lerp(0.52, 0.56, a3), 7.1);
+        m.scale.set(lerp(0.92, 1, a3), lerp(0.36, 1, a3), lerp(0.86, 1, a3));
+        m.material.color.copy(m.userData.bale).lerp(m.userData.foam, a3);
+      } else {
+        var a4 = ease((k - 0.86) / 0.14);
+        m.position.set(lerp(27.2, 22.5, a4), 0.52, lerp(7.1, 5.9 - i * 1.0, a4));
+        m.scale.set(1, 1, 1);
+        m.material.color.copy(m.userData.foam);
+      }
+      if (t > 45.5) m.scale.multiplyScalar(Math.max(0, 1 - seg(t, 45.5, 46.5)));
+    }
+  }
+
+  function animateCNC(t){
+    var c = t % 12, k = Math.floor(t / 12) % 3;
+    cutSheet.material = mat(SHEET[k], 0.95);
+    if (c < 2.6){
+      var a = ease(seg(c, 0.2, 2.6));
+      feedBlock.visible = true;
+      feedBlock.position.set(lerp(22.8, 18.4, a), lerp(0.52, 1.42, a), lerp(3.9, 2.7, a));
+      cutSheet.visible = false; blade.position.x = -2.4;
+    } else if (c < 7.6){
+      var a2 = seg(c, 2.6, 7.6);
+      feedBlock.visible = true; feedBlock.position.set(18.4, 1.42, 2.7);
+      blade.position.x = lerp(-2.4, 2.4, ease(a2));
+      cutSheet.visible = true;
+      cutSheet.position.set(18.4, 1.97 + 0.12 * ease(a2), 2.7);
+    } else if (c < 11){
+      var a3 = ease(seg(c, 7.6, 11));
+      feedBlock.visible = true; feedBlock.position.set(18.4, 1.42, 2.7);
+      blade.position.x = lerp(2.4, -2.4, ease(seg(c, 7.6, 9.4)));
+      cutSheet.visible = true;
+      cutSheet.position.set(lerp(18.4, stackX[k], a3), lerp(2.1, stackTop[k] + 0.06, a3 * a3), lerp(2.7, 3.1, a3));
+    } else {
+      feedBlock.visible = false; cutSheet.visible = false; blade.position.x = -2.4;
+    }
+  }
+
+  function animatePack(t){
+    var p = t % 16, k = Math.floor(t / 16) % 3;
+    carried.material = mat(SHEET[k], 0.95);
+    tableSheet.material = mat(SHEET[k], 0.95);
+
+    var wx, wz, wa, wm = true, wc = false;
+    if (p < 3){
+      var r = along([[2.9, 12.6], [4.4, 11.2], [4.4, 9.4]], ease(seg(p, 0, 3)));
+      wx = r.x; wz = r.z; wa = r.ang;
+    } else if (p < 4){ wx = 4.4; wz = 9.4; wa = 0; wm = false; }
+    else if (p < 7){
+      var r2 = along([[4.4, 9.4], [4.4, 11.2], [2.9, 12.6]], ease(seg(p, 4, 7)));
+      wx = r2.x; wz = r2.z; wa = r2.ang; wc = true;
+    } else { wx = 2.9; wz = 12.6; wa = PI; wm = false; }
+    poseWorker(W[2], wx, wz, wa, wm, t, wc);
+    carried.visible = wc;
+    if (wc){
+      carried.position.set(wx - Math.sin(wa) * 0.55, 1.32, wz - Math.cos(wa) * 0.55);
+      carried.rotation.y = wa + PI / 2;
+    }
+
+    if (p >= 7 && p < 9.4){
+      tableSheet.visible = true; tableSheet.position.set(2.4, 1.0, 11.6);
+      tableCover.visible = p > 7.6;
+      var cv = ease(seg(p, 7.6, 9.2));
+      tableCover.scale.set(cv, 1, 1);
+      tableCover.position.set(2.4 - (1 - cv) * 1.03, 1.0, 11.6);
+      pair.visible = false;
+    } else if (p >= 9.4 && p < 13){
+      tableSheet.visible = false; tableCover.visible = false; pair.visible = true;
+      mat2.position.y = lerp(0.06, 0.19, ease(seg(p, 9.4, 11.2)));
+      sleeve.visible = p > 11.2;
+      var a4 = ease(seg(p, 11.4, 13));
+      pair.position.set(lerp(2.4, 6.85, a4), 0.95, lerp(12.4, 11.0, a4));
+      pair.scale.y = 1;
+    } else if (p >= 13 && p < 14.6){
+      pair.visible = true;
+      var a5 = ease(seg(p, 13, 13.6));
+      pair.position.set(6.85, lerp(0.95, 1.78, a5), lerp(11.0, 12.1, a5));
+      var a6 = ease(seg(p, 13.6, 14.4));
+      pair.scale.y = lerp(1, 0.22, a6);
+      press.position.y = lerp(2.4, 2.05, a6);
+    } else {
+      tableSheet.visible = false; tableCover.visible = false; pair.visible = false;
+      press.position.y = lerp(2.05, 2.4, ease(seg(p, 14.6, 15.4)));
+    }
+
+    if (p >= 14.2 && p < 16){
+      liveRoll.visible = true;
+      var a7 = ease(seg(p, 14.2, 15.0)), a8 = ease(seg(p, 15.0, 16));
+      liveRoll.position.set(lerp(6.85, 6.6, a8), lerp(1.5, ROLL_R, a7), lerp(13.5, 17.4, a8));
+      liveRoll.rotation.x = a8 * 6;
+    } else liveRoll.visible = false;
+  }
+
+  function animateLoading(t){
+    var shown = false;
+    for (var i = 0; i < 3; i++){
+      var t0 = 36 + i * 2.6;
+      if (t >= t0 && t < t0 + 2.4){
+        var a = clamp01((t - t0) / 2.4), e = ease(a);
+        loadRoll.visible = true; shown = true;
+        loadRoll.position.set(lerp(4.6 + i * 0.5, 10.6, e), ROLL_R + Math.sin(a * PI) * 1.5, lerp(20.2 - i * 0.6, 15.75, e));
+        loadRoll.rotation.x = a * 9;
+      }
+    }
+    if (!shown) loadRoll.visible = false;
+  }
+
+  function animateWorkers(t){
+    var c1 = t % 12;
+    var a1 = c1 < 5 ? ease(seg(c1, 0, 5)) : c1 < 6 ? 1 : c1 < 11 ? 1 - ease(seg(c1, 6, 11)) : 0;
+    var r1 = along([[28.4, 11.4], [27.9, 9.2], [26.4, 7.4]], a1);
+    var mv1 = (c1 < 5) || (c1 >= 6 && c1 < 11);
+    poseWorker(W[0], r1.x, r1.z, mv1 ? r1.ang + (c1 >= 6 ? PI : 0) : PI * 0.9, mv1, t, false);
+
+    var c2 = t % 12;
+    var a2 = c2 < 2.6 ? ease(seg(c2, 0, 2.6)) : c2 < 8 ? 1 : 1 - ease(seg(c2, 8, 10));
+    var r2 = along([[22.4, 5.4], [20.6, 5.2], [19.0, 4.9]], a2);
+    var mv2 = (c2 < 2.6) || (c2 >= 8 && c2 < 10);
+    poseWorker(W[1], r2.x, r2.z, mv2 ? r2.ang : -0.5, mv2, t, false);
+
+    var x4, z4, a4, m4 = false;
+    if (t < 34.5){ x4 = 7.9; z4 = 13.9; a4 = PI * 0.78; }
+    else if (t < 36){ var r4 = along([[7.9, 13.9], [8.4, 15.0], [8.4, 16.5]], ease(seg(t, 34.5, 36))); x4 = r4.x; z4 = r4.z; a4 = r4.ang; m4 = true; }
+    else if (t < 44){ x4 = 8.4; z4 = 16.5; a4 = PI / 2; }
+    else { var k5 = ease(seg(t, 44, 46)); var r5 = along([[8.4, 16.5], [8.4, 15.0], [7.9, 13.9]], k5); x4 = r5.x; z4 = r5.z; a4 = r5.ang; m4 = k5 < 1; }
+    poseWorker(W[3], x4, z4, a4, m4, t, false);
+  }
+
+  function updateHUD(t){
+    var idx = 0;
+    for (var i = 0; i < STAGES.length; i++) if (t >= STAGES[i][0]) idx = i;
+    if (idx !== lastStage){
+      lastStage = idx;
+      elN.textContent = (idx + 1) + ' / 7';
+      elT.textContent = STAGES[idx][1];
+      elS.textContent = STAGES[idx][2];
+      for (var j = 0; j < chips.length; j++) chips[j].classList.toggle('on', j === idx);
+    }
+    elBar.style.width = (t / T * 100).toFixed(2) + '%';
+    var s = Math.floor(t);
+    elClock.textContent = '00:' + (s < 10 ? '0' : '') + s;
+  }
+
+  /* ================= цикл ================= */
+  var clock = new THREE.Clock(), time = 0;
+  function resize(){
+    var w = app.clientWidth || window.innerWidth, h = app.clientHeight || window.innerHeight;
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+    renderer.setSize(w, h, false);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function frame(){
+    requestAnimationFrame(frame);
+    if (document.hidden){ clock.getDelta(); return; }
+    time = (time + Math.min(clock.getDelta(), 0.1)) % T;
+    var t = time;
+    animateTrucks(t); animateUnload(t); animateCNC(t);
+    animatePack(t); animateLoading(t); animateWorkers(t); updateHUD(t);
+    var u = t / T;
+    camPath.getPointAt(u, camPos); camLook.getPointAt(u, camTgt);
+    camera.position.lerp(camPos, 0.12);
+    camera.lookAt(camTgt);
+    updateFade(); updateCards();
+    renderer.render(scene, camera);
+  }
+  camPath.getPointAt(0, camPos); camera.position.copy(camPos);
+  camLook.getPointAt(0, camTgt); camera.lookAt(camTgt);
+  frame();
+})();
+</script>
