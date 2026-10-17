@@ -116,7 +116,7 @@ body{
     asphalt:0x797E7C, concrete:0xB4B1A8,
     wall:0xC8C1B2, wallIn:0xE4E0D5, steelDark:0x4B565D, steel:0x939C9F, white:0xDFE2E1,
     blue:0x3A6FA8, blueLt:0x5B91C9, gate:0xCE7938, door:0xD7DBD9,
-    bale:0x8C9497, cover:0xDFE3E1, roll:0x59BFAB, film:0xBCD7D0,
+    bale:0x8C9497, cover:0xB4AEA1, piping:0x87826F, roll:0x4FBCA6, film:0xBCD7D0,
     truck:0xE4E7E6, cab:0x2C3A45, tyre:0x22272A, glass:0x92A8B4,
     skin:0xE0AC85, vest:0xF0801F, pants:0x2C3A44, lampOn:0x37D07A
   };
@@ -477,11 +477,40 @@ body{
   var cutSheet = box(BW, 0.1, BD, SHEET[0], 18.4, 1.95, 2.7, { rough:0.95 });
 
   /* ================= помещение 2: буфер листов ================= */
-  var stackX = [12.4, 7.7, 3.0], stackTop = [];
-  for (var s = 0; s < 3; s++){
-    box(2.4, 0.12, 1.15, COL.steel, stackX[s], 0.06, 3.1, { rough:0.9, cast:false });
-    for (var j = 0; j < 14; j++) box(2.0, 0.1, 0.85, SHEET[s], stackX[s], 0.17 + j * 0.105, 3.1, { rough:0.95, cast: j > 9 });
-    stackTop[s] = 0.17 + 14 * 0.105;
+  // Склад забит стопками: шесть рядов по пять штабелей, разной высоты,
+  // часть затянута плёнкой. Листы рисуются инстансами — три вызова отрисовки.
+  var SH_T = 0.105;                                  // шаг листа в стопке
+  var PAL = 0.12;                                    // поддон
+  var stackX = [12.5, 7.9, 3.4], stackTop = [0, 0, 0];
+  var filmMat = new THREE.MeshStandardMaterial({ color:0xF4F7F5, roughness:0.22, metalness:0.04, transparent:true, opacity:0.2 });
+  var bufCols = [{ x:1.3, c:2 }, { x:3.4, c:2 }, { x:5.7, c:1 }, { x:7.9, c:1 }, { x:10.2, c:0 }, { x:12.5, c:0 }];
+  var bufRows = [0.95, 2.05, 3.15, 4.25, 5.35];
+  var sheetMats = [[], [], []];
+  var dummy = new THREE.Object3D();
+  for (var bc = 0; bc < bufCols.length; bc++){
+    for (var br = 0; br < bufRows.length; br++){
+      var bx = bufCols[bc].x, bz = bufRows[br], ci = bufCols[bc].c;
+      var cnt = 15 + ((bc * 7 + br * 5) % 11);       // 15–25 листов, стопки до 2,7 м
+      if (bz === 3.15 && stackX[ci] === bx){ cnt = 16; stackTop[ci] = PAL + cnt * SH_T; }
+      box(2.16, PAL, 0.98, COL.steelDark, bx, PAL / 2, bz, { rough:0.85, cast:false });
+      for (var sk = 0; sk < cnt; sk++){
+        dummy.position.set(bx + (((bc + br + sk) % 7 === 0) ? 0.05 : 0), PAL + 0.05 + sk * SH_T, bz);
+        dummy.rotation.set(0, ((bc + sk) % 11 === 0) ? 0.03 : 0, 0);
+        dummy.scale.set(2.0, 0.1, 0.85);
+        dummy.updateMatrix();
+        sheetMats[ci].push(dummy.matrix.clone());
+      }
+      if ((bc * 3 + br) % 3 !== 0){                   // часть стопок в плёнке
+        box(2.1, cnt * SH_T + 0.08, 0.93, 0xF4F7F5, bx, PAL + (cnt * SH_T) / 2, bz, { mat:filmMat, cast:false });
+      }
+    }
+  }
+  for (var sm = 0; sm < 3; sm++){
+    var inst = new THREE.InstancedMesh(BOX, mat(SHEET[sm], 0.95), sheetMats[sm].length);
+    for (var im = 0; im < sheetMats[sm].length; im++) inst.setMatrixAt(im, sheetMats[sm][im]);
+    inst.instanceMatrix.needsUpdate = true;
+    inst.castShadow = true; inst.receiveShadow = true;
+    scene.add(inst);
   }
 
   /* ================= помещение 1: стол, ВУМ-01, рулоны ================= */
@@ -549,26 +578,80 @@ body{
   plate(vum, 'ВУМ-01', 0.9, 0.24, 0, 0.66, -1.68, PI);
   andon(vum, -1.03, 2.84, -1.08);
 
+  function mattress(parent, y){
+    var g = group(0, y, 0, parent);
+    box(2.0, 0.11, 0.85, COL.cover, 0, 0, 0, { parent:g, rough:0.92 });
+    box(2.02, 0.03, 0.87, COL.piping, 0, 0, 0, { parent:g, rough:0.9, cast:false });   // кант и молния по периметру
+    box(1.6, 0.012, 0.03, 0xE6E3DC, 0, 0.056, 0.42, { parent:g, rough:0.7, cast:false });
+    return g;
+  }
   var pair = group(2.4, 0.95, 12.4);
-  var mat1 = box(2.0, 0.11, 0.85, COL.cover, 0, 0.06, 0, { parent:pair, rough:0.85 });
-  var mat2 = box(2.0, 0.11, 0.85, COL.cover, 0, 0.19, 0, { parent:pair, rough:0.85 });
+  var mat1 = mattress(pair, 0.06);
+  var mat2 = mattress(pair, 0.19);
   var sleeveMat = new THREE.MeshStandardMaterial({ color:COL.film, roughness:0.3, transparent:true, opacity:0.45 });
   var sleeve = box(2.16, 0.32, 0.98, COL.film, 0, 0.13, 0, { parent:pair, mat:sleeveMat });
   pair.visible = false;
 
+  var readyPile = group(2.0, 0, 15.1);
+  box(2.2, 0.12, 1.0, COL.steelDark, 0, 0.06, 0, { parent:readyPile, rough:0.85, cast:false });
+  for (var mp = 0; mp < 6; mp++){
+    box(2.0, 0.11, 0.85, COL.cover, (mp % 2) * 0.04 - 0.02, 0.19 + mp * 0.135, 0, { parent:readyPile, rough:0.92 });
+    box(2.02, 0.03, 0.87, COL.piping, (mp % 2) * 0.04 - 0.02, 0.19 + mp * 0.135, 0, { parent:readyPile, rough:0.9, cast:false });
+  }
   var tableSheet = box(2.0, 0.1, 0.85, SHEET[0], 2.4, 1.0, 11.6, { rough:0.95 }); tableSheet.visible = false;
   var tableCover = box(2.06, 0.13, 0.9, COL.cover, 2.4, 1.0, 11.6, { rough:0.85 }); tableCover.visible = false;
   var carried = box(2.0, 0.1, 0.85, SHEET[0], 0, 0, 0, { rough:0.95 }); carried.visible = false;
 
-  var ROLL_R = 0.34;
-  function rollMesh(x, y, z){ return cyl(ROLL_R, 0.95, COL.roll, x, y, z, { rz:PI / 2, seg:14, rough:0.55 }); }
-  for (var r = 0; r < 3; r++){
-    var n = 6 - r;
-    for (var c = 0; c < n; c++) rollMesh(1.7 + c * 1.02 + r * 0.51, ROLL_R + r * 0.62, 19.4 + (c % 2) * 1.2);
+  // Рулоны как на фото: мятный матрас в прозрачной плёнке, на торце видна
+  // спираль намотки, на части рулонов — жёлтая наклейка.
+  var ROLL_R = 0.34, ROLL_L = 0.95;
+  var rollCapTex = (function(){
+    var cv = document.createElement('canvas'); cv.width = cv.height = 256;
+    var g = cv.getContext('2d');
+    g.fillStyle = '#5EC2AB'; g.fillRect(0, 0, 256, 256);
+    g.lineCap = 'round';
+    g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = 3.4;
+    g.beginPath();
+    for (var a = 0; a < PI * 2 * 5.2; a += 0.07){
+      var rr = 7 + a * 3.5, px = 128 + Math.cos(a) * rr, py = 128 + Math.sin(a) * rr;
+      if (a === 0) g.moveTo(px, py); else g.lineTo(px, py);
+    }
+    g.stroke();
+    g.strokeStyle = 'rgba(32,64,58,.3)'; g.lineWidth = 7;
+    g.beginPath(); g.arc(128, 128, 122, 0, PI * 2); g.stroke();
+    return new THREE.CanvasTexture(cv);
+  })();
+  var rollSideMat = new THREE.MeshStandardMaterial({ color: COL.roll, roughness:0.34, metalness:0.06 });
+  var rollCapMat = new THREE.MeshStandardMaterial({ map: rollCapTex, roughness:0.45 });
+  var ROLL_GEO = new THREE.CylinderGeometry(ROLL_R, ROLL_R, ROLL_L, 20);
+  var rollN = 0;
+  function rnd(i){ var v = Math.sin(i * 127.1) * 43758.5453; return v - Math.floor(v); }
+  var rollSeed = 0;
+  function rollMesh(x, y, z, label){
+    var m = new THREE.Mesh(ROLL_GEO, [rollSideMat, rollCapMat, rollCapMat]);
+    m.rotation.z = PI / 2;
+    if (label !== false){                              // лёгкий разнобой, чтобы штабель не был строем
+      var sd = ++rollSeed;
+      m.rotation.y = (rnd(sd) - 0.5) * 0.22;
+      x += (rnd(sd + 11) - 0.5) * 0.1; z += (rnd(sd + 23) - 0.5) * 0.12;
+    }
+    m.position.set(x, y, z);
+    m.castShadow = true; m.receiveShadow = true;
+    scene.add(m);
+    if (label !== false && rollN++ % 3 === 0) box(0.16, 0.02, 0.12, 0xE8C53A, x + 0.18, y + ROLL_R, z, { rough:0.6, cast:false });
+    return m;
   }
-  for (var r2 = 0; r2 < 5; r2++) rollMesh(2.2 + r2 * 1.02, ROLL_R, 21.7);
-  var liveRoll = rollMesh(6.85, ROLL_R, 13.9); liveRoll.visible = false;
-  var loadRoll = rollMesh(4.5, ROLL_R, 20.2); loadRoll.visible = false;
+  // штабель: три слоя со смещением, как сваленные друг на друга рулоны
+  for (var ly = 0; ly < 3; ly++){
+    var cols = 6 - ly, rows = 4 - ly;
+    for (var cc = 0; cc < cols; cc++){
+      for (var rr2 = 0; rr2 < rows; rr2++){
+        rollMesh(1.25 + cc * 1.05 + ly * 0.52, ROLL_R + ly * 0.6, 18.95 + rr2 * 0.74 + ly * 0.37);
+      }
+    }
+  }
+  var liveRoll = rollMesh(6.85, ROLL_R, 13.9, false); liveRoll.visible = false;
+  var loadRoll = rollMesh(4.5, ROLL_R, 20.2, false); loadRoll.visible = false;
 
   /* ================= блоки из фуры ================= */
   var bales = [];
@@ -845,7 +928,7 @@ body{
       feedBlock.visible = true; feedBlock.position.set(18.4, 1.42, 2.7);
       blade.position.x = lerp(2.2, -1.8, ease(seg(c, 7.6, 9.4)));
       cutSheet.visible = true;
-      cutSheet.position.set(lerp(18.4, stackX[k], a3), lerp(2.1, stackTop[k] + 0.06, a3 * a3), lerp(2.7, 3.1, a3));
+      cutSheet.position.set(lerp(18.4, stackX[k], a3), lerp(2.1, stackTop[k] + 0.06, a3 * a3), lerp(2.7, 3.15, a3));
     } else {
       feedBlock.visible = false; cutSheet.visible = false; blade.position.x = -1.8;
     }
